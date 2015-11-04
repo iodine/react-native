@@ -22,7 +22,7 @@ var invariant = require('invariant');
 var flattenStyle = require('flattenStyle');
 var requestAnimationFrame = require('requestAnimationFrame');
 
-import type InterpolationConfigType from 'Interpolation';
+import type { InterpolationConfigType } from 'Interpolation';
 
 type EndResult = {finished: bool};
 type EndCallback = (result: EndResult) => void;
