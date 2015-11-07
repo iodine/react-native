@@ -202,14 +202,19 @@ function createInterpolationFromStringOutputRange(
   //   [200, 250],
   //   [0, 0.5],
   // ]
-  var outputRanges = outputRange[0].match(stringShapeRegex).map(() => []);
+
+  /* $FlowFixMe(>=0.18.0) - match can return null. */
+  var outputRanges: Array<any> = outputRange[0].match(stringShapeRegex).map(() => []);
+  // $FlowIssue
   outputRange.forEach(value => {
+    /* $FlowFixMe(>=0.18.0) - match can return null. */
     value.match(stringShapeRegex).forEach((number, i) => {
       outputRanges[i].push(+number);
     });
   });
 
-  var interpolations = outputRange[0].match(stringShapeRegex).map((value, i) => {
+  /* $FlowFixMe(>=0.18.0) - match can return null. */
+  var interpolations: Array<any> = outputRange[0].match(stringShapeRegex).map((value, i) => {
     return Interpolation.create({
       ...config,
       outputRange: outputRanges[i],
