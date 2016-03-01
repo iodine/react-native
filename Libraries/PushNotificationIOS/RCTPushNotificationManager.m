@@ -257,7 +257,6 @@ RCT_EXPORT_METHOD(requestPermissions:(NSDictionary *)permissions)
   if ([app respondsToSelector:@selector(registerUserNotificationSettings:)]) {
     UIUserNotificationSettings *notificationSettings = [UIUserNotificationSettings settingsForTypes:(NSUInteger)types categories:nil];
     [app registerUserNotificationSettings:notificationSettings];
-    [app registerForRemoteNotifications];
   } else {
     [app registerForRemoteNotificationTypes:(NSUInteger)types];
   }
@@ -346,7 +345,10 @@ RCT_EXPORT_METHOD(registerNotificationActionsForCategory:(NSDictionary*)actionsF
                                                  categories:categories];
 
     [RCTSharedApplication() registerUserNotificationSettings:settings];
+<<<<<<< Updated upstream
     [RCTSharedApplication() registerForRemoteNotifications];
+=======
+>>>>>>> Stashed changes
   }
 }
 
