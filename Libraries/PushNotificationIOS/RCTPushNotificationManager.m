@@ -355,7 +355,6 @@ RCT_EXPORT_METHOD(registerNotificationActionsForCategory:(NSDictionary*)actionsF
                                                  categories:categories];
 
     [RCTSharedApplication() registerUserNotificationSettings:settings];
-    [RCTSharedApplication() registerForRemoteNotifications];
   }
 }
 
