@@ -3,6 +3,7 @@
   "compact": true,
   "comments": false,
   "plugins": [
+    "transform-decorators-legacy",
     "syntax-async-functions",
     "syntax-class-properties",
     "syntax-trailing-function-commas",
