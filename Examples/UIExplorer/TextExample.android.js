@@ -15,13 +15,14 @@
  */
 'use strict';
 
-var React = require('react-native');
+var React = require('react');
+var ReactNative = require('react-native');
 var {
   Image,
   StyleSheet,
   Text,
   View,
-} = React;
+} = ReactNative;
 var UIExplorerBlock = require('./UIExplorerBlock');
 var UIExplorerPage = require('./UIExplorerPage');
 
@@ -214,6 +215,23 @@ var TextExample = React.createClass({
             Move fast and be bold
           </Text>
         </UIExplorerBlock>
+        <UIExplorerBlock title="Text Decoration">
+          <Text style={{textDecorationLine: 'underline'}}>
+            Solid underline
+          </Text>
+          <Text style={{textDecorationLine: 'none'}}>
+            None textDecoration
+          </Text>
+          <Text style={{textDecorationLine: 'line-through', textDecorationStyle: 'solid'}}>
+            Solid line-through
+          </Text>
+          <Text style={{textDecorationLine: 'underline line-through'}}>
+            Both underline and line-through
+          </Text>
+          <Text>
+            Mixed text with <Text style={{textDecorationLine: 'underline'}}>underline</Text> and <Text style={{textDecorationLine: 'line-through'}}>line-through</Text> text nodes
+          </Text>
+        </UIExplorerBlock>
         <UIExplorerBlock title="Nested">
           <Text onPress={() => console.log('1st')}>
             (Normal text,
@@ -363,6 +381,11 @@ var TextExample = React.createClass({
         <UIExplorerBlock title="Inline images">
           <Text>
             This text contains an inline image <Image source={require('./flux.png')}/>. Neat, huh?
+          </Text>
+        </UIExplorerBlock>
+        <UIExplorerBlock title="Text shadow">
+          <Text style={{fontSize: 20, textShadowOffset: {width: 2, height: 2}, textShadowRadius: 1, textShadowColor: '#00cccc'}}>
+            Demo text shadow
           </Text>
         </UIExplorerBlock>
       </UIExplorerPage>

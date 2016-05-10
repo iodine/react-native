@@ -12,6 +12,7 @@
 #import <UIKit/UIKit.h>
 
 #import "RCTConvert.h"
+#import "RCTImageLoader.h"
 #import "RCTImageSource.h"
 #import "RCTImageView.h"
 
@@ -24,6 +25,7 @@ RCT_EXPORT_MODULE()
   return [[RCTImageView alloc] initWithBridge:self.bridge];
 }
 
+RCT_EXPORT_VIEW_PROPERTY(blurRadius, CGFloat)
 RCT_EXPORT_VIEW_PROPERTY(capInsets, UIEdgeInsets)
 RCT_REMAP_VIEW_PROPERTY(defaultSource, defaultImage, UIImage)
 RCT_EXPORT_VIEW_PROPERTY(onLoadStart, RCTDirectEventBlock)
@@ -31,7 +33,7 @@ RCT_EXPORT_VIEW_PROPERTY(onProgress, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onError, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onLoad, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onLoadEnd, RCTDirectEventBlock)
-RCT_REMAP_VIEW_PROPERTY(resizeMode, contentMode, UIViewContentMode)
+RCT_REMAP_VIEW_PROPERTY(resizeMode, contentMode, RCTResizeMode)
 RCT_EXPORT_VIEW_PROPERTY(source, RCTImageSource)
 RCT_CUSTOM_VIEW_PROPERTY(tintColor, UIColor, RCTImageView)
 {
@@ -40,6 +42,20 @@ RCT_CUSTOM_VIEW_PROPERTY(tintColor, UIColor, RCTImageView)
   // so we toggle `renderingMode` here instead of in `-[RCTImageView setTintColor:]`
   view.tintColor = [RCTConvert UIColor:json] ?: defaultView.tintColor;
   view.renderingMode = json ? UIImageRenderingModeAlwaysTemplate : defaultView.renderingMode;
+}
+
+RCT_EXPORT_METHOD(getSize:(NSURL *)imageURL
+                  successBlock:(RCTResponseSenderBlock)successBlock
+                  errorBlock:(RCTResponseErrorBlock)errorBlock)
+{
+  [self.bridge.imageLoader getImageSize:imageURL.absoluteString
+                                  block:^(NSError *error, CGSize size) {
+                                    if (error) {
+                                      errorBlock(error);
+                                    } else {
+                                      successBlock(@[@(size.width), @(size.height)]);
+                                    }
+                                  }];
 }
 
 @end

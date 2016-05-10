@@ -85,6 +85,7 @@ RCT_EXPORT_MODULE()
 RCT_EXPORT_VIEW_PROPERTY(showsUserLocation, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(showsPointsOfInterest, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(showsCompass, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(followUserLocation, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(zoomEnabled, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(rotateEnabled, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(pitchEnabled, BOOL)
@@ -95,6 +96,9 @@ RCT_EXPORT_VIEW_PROPERTY(legalLabelInsets, UIEdgeInsets)
 RCT_EXPORT_VIEW_PROPERTY(mapType, MKMapType)
 RCT_EXPORT_VIEW_PROPERTY(annotations, NSArray<RCTMapAnnotation *>)
 RCT_EXPORT_VIEW_PROPERTY(overlays, NSArray<RCTMapOverlay *>)
+RCT_EXPORT_VIEW_PROPERTY(onAnnotationDragStateChange, RCTBubblingEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onAnnotationFocus, RCTBubblingEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onAnnotationBlur, RCTBubblingEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onChange, RCTBubblingEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onPress, RCTBubblingEventBlock)
 RCT_CUSTOM_VIEW_PROPERTY(region, MKCoordinateRegion, RCTMap)
@@ -102,41 +106,12 @@ RCT_CUSTOM_VIEW_PROPERTY(region, MKCoordinateRegion, RCTMap)
   [view setRegion:json ? [RCTConvert MKCoordinateRegion:json] : defaultView.region animated:YES];
 }
 
-- (NSDictionary<NSString *, id> *)constantsToExport
-{
-  NSString *red, *green, *purple;
-
-#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_9_0
-
-  if (![MKPinAnnotationView respondsToSelector:@selector(redPinColor)]) {
-    red = RCTMapPinRed;
-    green = RCTMapPinGreen;
-    purple = RCTMapPinPurple;
-  } else
-
-#endif
-
-  {
-    red = RCTColorToHexString([MKPinAnnotationView redPinColor].CGColor);
-    green = RCTColorToHexString([MKPinAnnotationView greenPinColor].CGColor);
-    purple = RCTColorToHexString([MKPinAnnotationView purplePinColor].CGColor);
-  }
-
-  return @{
-    @"PinColors": @{
-      @"RED": red,
-      @"GREEN": green,
-      @"PURPLE": purple,
-    }
-  };
-}
-
 #pragma mark MKMapViewDelegate
 
 - (void)mapView:(RCTMap *)mapView didSelectAnnotationView:(MKAnnotationView *)view
 {
+  // TODO: Remove deprecated onAnnotationPress API call later.
   if (mapView.onPress && [view.annotation isKindOfClass:[RCTMapAnnotation class]]) {
-
     RCTMapAnnotation *annotation = (RCTMapAnnotation *)view.annotation;
     mapView.onPress(@{
       @"action": @"annotation-click",
@@ -149,6 +124,51 @@ RCT_CUSTOM_VIEW_PROPERTY(region, MKCoordinateRegion, RCTMap)
       }
     });
   }
+
+  if ([view.annotation isKindOfClass:[RCTMapAnnotation class]]) {
+    RCTMapAnnotation *annotation = (RCTMapAnnotation *)view.annotation;
+    if (mapView.onAnnotationFocus) {
+      mapView.onAnnotationFocus(@{
+        @"annotationId": annotation.identifier
+      });
+    }
+  }
+}
+
+- (void)mapView:(RCTMap *)mapView didDeselectAnnotationView:(MKAnnotationView *)view
+{
+  if ([view.annotation isKindOfClass:[RCTMapAnnotation class]]) {
+    RCTMapAnnotation *annotation = (RCTMapAnnotation *)view.annotation;
+    if (mapView.onAnnotationBlur) {
+      mapView.onAnnotationBlur(@{
+        @"annotationId": annotation.identifier
+      });
+    }
+  }
+}
+
+- (void)mapView:(RCTMap *)mapView annotationView:(MKAnnotationView *)view
+                              didChangeDragState:(MKAnnotationViewDragState)newState
+                                    fromOldState:(MKAnnotationViewDragState)oldState
+{
+  static NSArray *states;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    states = @[@"idle", @"starting", @"dragging", @"canceling", @"ending"];
+  });
+
+  if ([view.annotation isKindOfClass:[RCTMapAnnotation class]]) {
+    RCTMapAnnotation *annotation = (RCTMapAnnotation *)view.annotation;
+    if (mapView.onAnnotationDragStateChange) {
+      mapView.onAnnotationDragStateChange(@{
+        @"state": states[newState],
+        @"oldState": states[oldState],
+        @"annotationId": annotation.identifier,
+        @"latitude": @(annotation.coordinate.latitude),
+        @"longitude": @(annotation.coordinate.longitude),
+      });
+    }
+  }
 }
 
 - (MKAnnotationView *)mapView:(RCTMap *)mapView
@@ -159,8 +179,8 @@ RCT_CUSTOM_VIEW_PROPERTY(region, MKCoordinateRegion, RCTMap)
   }
 
   MKAnnotationView *annotationView;
-  annotationView.clipsToBounds = YES;
-  if (annotation.viewIndex != NSNotFound) {
+  if (annotation.viewIndex != NSNotFound &&
+      annotation.viewIndex < mapView.reactSubviews.count) {
 
     NSString *reuseIdentifier = NSStringFromClass([RCTMapAnnotationView class]);
     annotationView = [mapView dequeueReusableAnnotationViewWithIdentifier:reuseIdentifier];
@@ -205,9 +225,10 @@ RCT_CUSTOM_VIEW_PROPERTY(region, MKCoordinateRegion, RCTMap)
         annotation.tintColor ?: [MKPinAnnotationView redPinColor];
     }
   }
-  annotationView.canShowCallout = true;
+  annotationView.canShowCallout = (annotation.title.length > 0);
 
-  if (annotation.leftCalloutViewIndex != NSNotFound) {
+  if (annotation.leftCalloutViewIndex != NSNotFound &&
+      annotation.leftCalloutViewIndex < mapView.reactSubviews.count) {
     annotationView.leftCalloutAccessoryView =
       mapView.reactSubviews[annotation.leftCalloutViewIndex];
   } else if (annotation.hasLeftCallout) {
@@ -217,7 +238,8 @@ RCT_CUSTOM_VIEW_PROPERTY(region, MKCoordinateRegion, RCTMap)
     annotationView.leftCalloutAccessoryView = nil;
   }
 
-  if (annotation.rightCalloutViewIndex != NSNotFound) {
+  if (annotation.rightCalloutViewIndex != NSNotFound &&
+      annotation.rightCalloutViewIndex < mapView.reactSubviews.count) {
     annotationView.rightCalloutAccessoryView =
       mapView.reactSubviews[annotation.rightCalloutViewIndex];
   } else if (annotation.hasRightCallout) {
@@ -229,7 +251,8 @@ RCT_CUSTOM_VIEW_PROPERTY(region, MKCoordinateRegion, RCTMap)
 
   //http://stackoverflow.com/questions/32581049/mapkit-ios-9-detailcalloutaccessoryview-usage
   if ([annotationView respondsToSelector:@selector(detailCalloutAccessoryView)]) {
-    if (annotation.detailCalloutViewIndex != NSNotFound) {
+    if (annotation.detailCalloutViewIndex != NSNotFound &&
+        annotation.detailCalloutViewIndex < mapView.reactSubviews.count) {
       UIView *calloutView = mapView.reactSubviews[annotation.detailCalloutViewIndex];
       NSLayoutConstraint *widthConstraint =
         [NSLayoutConstraint constraintWithItem:calloutView
@@ -254,6 +277,8 @@ RCT_CUSTOM_VIEW_PROPERTY(region, MKCoordinateRegion, RCTMap)
       annotationView.detailCalloutAccessoryView = nil;
     }
   }
+
+  annotationView.draggable = annotation.draggable;
 
   return annotationView;
 }
@@ -295,9 +320,6 @@ RCT_CUSTOM_VIEW_PROPERTY(region, MKCoordinateRegion, RCTMap)
     region.span.longitudeDelta = RCTMapDefaultSpan;
     region.center = location.coordinate;
     [mapView setRegion:region animated:YES];
-
-    // Move to user location only for the first time it loads up.
-    mapView.followUserLocation = NO;
   }
 }
 

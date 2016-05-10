@@ -23,32 +23,55 @@ type RelayProfiler = {
   ): void,
 };
 
-var GLOBAL = GLOBAL || this;
 var TRACE_TAG_REACT_APPS = 1 << 17;
 var TRACE_TAG_JSC_CALLS = 1 << 27;
 
 var _enabled = false;
 var _asyncCookie = 0;
-var _ReactPerf = null;
-function ReactPerf() {
-  if (!_ReactPerf) {
-    _ReactPerf = require('ReactPerf');
+var _ReactDebugTool = null;
+var _ReactComponentTreeDevtool = null;
+function ReactDebugTool() {
+  if (!_ReactDebugTool) {
+    _ReactDebugTool = require('ReactDebugTool');
   }
-  return _ReactPerf;
+  return _ReactDebugTool;
 }
+function ReactComponentTreeDevtool() {
+  if (!_ReactComponentTreeDevtool) {
+    _ReactComponentTreeDevtool = require('ReactComponentTreeDevtool');
+  }
+  return _ReactComponentTreeDevtool;
+}
+
+var ReactSystraceDevtool = {
+  onBeginReconcilerTimer(debugID, timerType) {
+    var displayName = ReactComponentTreeDevtool().getDisplayName(debugID);
+    Systrace.beginEvent(`ReactReconciler.${timerType}(${displayName})`);
+  },
+  onEndReconcilerTimer(debugID, timerType) {
+    Systrace.endEvent();
+  },
+  onBeginLifeCycleTimer(debugID, timerType) {
+    var displayName = ReactComponentTreeDevtool().getDisplayName(debugID);
+    Systrace.beginEvent(`${displayName}.${timerType}()`);
+  },
+  onEndLifeCycleTimer(debugID, timerType) {
+    Systrace.endEvent();
+  },
+};
 
 var Systrace = {
   setEnabled(enabled: boolean) {
     if (_enabled !== enabled) {
       if (enabled) {
         global.nativeTraceBeginLegacy && global.nativeTraceBeginLegacy(TRACE_TAG_JSC_CALLS);
+        ReactDebugTool().addDevtool(ReactSystraceDevtool);
       } else {
         global.nativeTraceEndLegacy && global.nativeTraceEndLegacy(TRACE_TAG_JSC_CALLS);
+        ReactDebugTool().removeDevtool(ReactSystraceDevtool);
       }
     }
     _enabled = enabled;
-
-    ReactPerf().enableMeasure = enabled;
   },
 
   /**
@@ -92,22 +115,16 @@ var Systrace = {
     }
   },
 
-  reactPerfMeasure(objName: string, fnName: string, func: any): any {
-    return function (component) {
-      if (!_enabled) {
-        return func.apply(this, arguments);
-      }
-
-      var name = objName === 'ReactCompositeComponent' && this.getName() || '';
-      Systrace.beginEvent(`${objName}.${fnName}(${name})`);
-    var ret = func.apply(this, arguments);
-      Systrace.endEvent();
-      return ret;
-    };
-  },
-
-  swizzleReactPerf() {
-    ReactPerf().injection.injectMeasure(Systrace.reactPerfMeasure);
+  /**
+   * counterEvent registers the value to the profileName on the systrace timeline
+  **/
+  counterEvent(profileName?: any, value?: any) {
+    if (_enabled) {
+      profileName = typeof profileName === 'function' ?
+        profileName() : profileName;
+      global.nativeTraceCounter &&
+        global.nativeTraceCounter(TRACE_TAG_REACT_APPS, profileName, value);
+    }
   },
 
   /**
@@ -189,5 +206,13 @@ var Systrace = {
 };
 
 Systrace.setEnabled(global.__RCTProfileIsProfiling || false);
+
+if (__DEV__) {
+  // This is needed, because require callis in polyfills are not processed as
+  // other files. Therefore, calls to `require('moduleId')` are not replaced
+  // with numeric IDs
+  // TODO(davidaurelio) Scan polyfills for dependencies, too (t9759686)
+  require.Systrace = Systrace;
+}
 
 module.exports = Systrace;

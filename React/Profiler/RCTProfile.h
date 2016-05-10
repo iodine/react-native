@@ -10,6 +10,7 @@
 #import <Foundation/Foundation.h>
 
 #import "RCTDefines.h"
+#import "RCTAssert.h"
 
 /**
  * RCTProfile
@@ -69,10 +70,10 @@ RCT_EXTERN void _RCTProfileBeginEvent(NSThread *calleeThread,
 #define RCT_PROFILE_BEGIN_EVENT(...) \
   do { \
     if (RCTProfileIsProfiling()) { \
-      NSThread *calleeThread = [NSThread currentThread]; \
-      NSTimeInterval time = CACurrentMediaTime(); \
+      NSThread *__calleeThread = [NSThread currentThread]; \
+      NSTimeInterval __time = CACurrentMediaTime(); \
       dispatch_async(RCTProfileGetQueue(), ^{ \
-        _RCTProfileBeginEvent(calleeThread, time, __VA_ARGS__); \
+        _RCTProfileBeginEvent(__calleeThread, __time, __VA_ARGS__); \
       }); \
     } \
   } while(0)
@@ -92,11 +93,11 @@ RCT_EXTERN void _RCTProfileEndEvent(NSThread *calleeThread,
 #define RCT_PROFILE_END_EVENT(...) \
   do { \
     if (RCTProfileIsProfiling()) { \
-      NSThread *calleeThread = [NSThread currentThread]; \
-      NSString *threadName = RCTCurrentThreadName(); \
-      NSTimeInterval time = CACurrentMediaTime(); \
+      NSThread *__calleeThread = [NSThread currentThread]; \
+      NSString *__threadName = RCTCurrentThreadName(); \
+      NSTimeInterval __time = CACurrentMediaTime(); \
       dispatch_async(RCTProfileGetQueue(), ^{ \
-        _RCTProfileEndEvent(calleeThread, threadName, time, __VA_ARGS__); \
+        _RCTProfileEndEvent(__calleeThread, __threadName, __time, __VA_ARGS__); \
       }); \
     } \
   } while(0)
@@ -117,6 +118,7 @@ RCT_EXTERN void RCTProfileEndAsyncEvent(uint64_t tag,
                                         NSString *category,
                                         NSUInteger cookie,
                                         NSString *name,
+                                        NSString *threadName,
                                         NSDictionary *args);
 
 /**
@@ -149,6 +151,11 @@ RCT_EXTERN void RCTProfileHookModules(RCTBridge *);
  * Unhook from a given bridge instance's modules
  */
 RCT_EXTERN void RCTProfileUnhookModules(RCTBridge *);
+
+/**
+ * Hook into all of a module's methods
+ */
+RCT_EXTERN void RCTProfileHookInstance(id instance);
 
 /**
  * Send systrace or cpu profiling information to the packager
@@ -184,13 +191,19 @@ typedef struct {
 
 RCT_EXTERN void RCTProfileRegisterCallbacks(RCTProfileCallbacks *);
 
+/**
+ * Systrace control window
+ */
+RCT_EXTERN void RCTProfileShowControls(void);
+RCT_EXTERN void RCTProfileHideControls(void);
+
 #else
 
 #define RCTProfileBeginFlowEvent()
 #define _RCTProfileBeginFlowEvent() @0
 
 #define RCTProfileEndFlowEvent()
-#define _RCTProfileEndFlowEvent()
+#define _RCTProfileEndFlowEvent(...)
 
 #define RCTProfileIsProfiling(...) NO
 #define RCTProfileInit(...)
@@ -210,8 +223,12 @@ RCT_EXTERN void RCTProfileRegisterCallbacks(RCTProfileCallbacks *);
 #define RCTProfileBlock(block, ...) block
 
 #define RCTProfileHookModules(...)
+#define RCTProfileHookInstance(...)
 #define RCTProfileUnhookModules(...)
 
 #define RCTProfileSendResult(...)
+
+#define RCTProfileShowControls(...)
+#define RCTProfileHideControls(...)
 
 #endif

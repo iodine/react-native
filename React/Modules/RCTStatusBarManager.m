@@ -46,9 +46,19 @@ RCT_EXPORT_MODULE()
 
 @synthesize bridge = _bridge;
 
+- (instancetype)init
+{
+  // We're only overriding this to ensure the module gets created at startup
+  // TODO (t11106126): Remove once we have more declarative control over module setup.
+  return [super init];
+}
+
 - (void)setBridge:(RCTBridge *)bridge
 {
   _bridge = bridge;
+
+  // TODO: if we add an explicit "startObserving" method, we can take this out
+  // of the application startup path
 
   NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
   [nc addObserver:self selector:@selector(applicationDidChangeStatusBarFrame:) name:UIApplicationDidChangeStatusBarFrameNotification object:nil];
@@ -87,6 +97,13 @@ RCT_EXPORT_MODULE()
 - (void)applicationWillChangeStatusBarFrame:(NSNotification *)notification
 {
   [self emitEvent:@"statusBarFrameWillChange" forNotification:notification];
+}
+
+RCT_EXPORT_METHOD(getHeight:(RCTResponseSenderBlock)callback)
+{
+  callback(@[@{
+    @"height": @([UIApplication sharedApplication].statusBarFrame.size.height),
+  }]);
 }
 
 RCT_EXPORT_METHOD(setStyle:(UIStatusBarStyle)statusBarStyle

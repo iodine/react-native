@@ -16,11 +16,12 @@ var Image = require('Image');
 var NavigationContext = require('NavigationContext');
 var RCTNavigatorManager = require('NativeModules').NavigatorManager;
 var React = require('React');
+var ReactNative = require('ReactNative');
 var StaticContainer = require('StaticContainer.react');
 var StyleSheet = require('StyleSheet');
 var View = require('View');
 
-var invariant = require('invariant');
+var invariant = require('fbjs/lib/invariant');
 var logError = require('logError');
 var requireNativeComponent = require('requireNativeComponent');
 var resolveAssetSource = require('resolveAssetSource');
@@ -37,7 +38,7 @@ function getuid() {
 var NavigatorTransitionerIOS = React.createClass({
   requestSchedulingNavigation: function(cb) {
     RCTNavigatorManager.requestSchedulingJavaScriptNavigation(
-      React.findNodeHandle(this),
+      ReactNative.findNodeHandle(this),
       logError,
       cb
     );
@@ -142,20 +143,6 @@ type Event = Object;
  * });
  * ```
  *
- * A navigation object contains the following functions:
- *
- *  - `push(route)` - Navigate forward to a new route
- *  - `pop()` - Go back one page
- *  - `popN(n)` - Go back N pages at once. When N=1, behavior matches `pop()`
- *  - `replace(route)` - Replace the route for the current page and immediately
- *    load the view for the new route
- *  - `replacePrevious(route)` - Replace the route/view for the previous page
- *  - `replacePreviousAndPop(route)` - Replaces the previous route/view and
- *    transitions back to it
- *  - `resetTo(route)` - Replaces the top item and popToTop
- *  - `popToRoute(route)` - Go back to the item for a particular route object
- *  - `popToTop()` - Go back to the top item
- *
  * Navigator functions are also available on the NavigatorIOS component:
  *
  * ```
@@ -171,6 +158,11 @@ type Event = Object;
  *   ),
  * });
  * ```
+ *
+ * Props passed to the NavigatorIOS component will set the default configuration
+ * for the navigation bar. Props passed as properties to a route object will set
+ * the configuration for that route's navigation bar, overriding any props
+ * passed to the NavigatorIOS component.
  *
  */
 var NavigatorIOS = React.createClass({
@@ -248,15 +240,45 @@ var NavigatorIOS = React.createClass({
        */
       wrapperStyle: View.propTypes.style,
 
+      /**
+       * A Boolean value that indicates whether the navigation bar is hidden
+       */
+      navigationBarHidden: PropTypes.bool,
+
+      /**
+       * A Boolean value that indicates whether to hide the 1px hairline shadow
+       */
+      shadowHidden: PropTypes.bool,
+
+      /**
+       * The color used for buttons in the navigation bar
+       */
+      tintColor: PropTypes.string,
+
+      /**
+       * The background color of the navigation bar
+       */
+      barTintColor: PropTypes.string,
+
+       /**
+       * The text color of the navigation bar title
+       */
+      titleTextColor: PropTypes.string,
+
+       /**
+       * A Boolean value that indicates whether the navigation bar is translucent
+       */
+      translucent: PropTypes.bool,
+
     }).isRequired,
 
     /**
-     * A Boolean value that indicates whether the navigation bar is hidden
+     * A Boolean value that indicates whether the navigation bar is hidden by default
      */
     navigationBarHidden: PropTypes.bool,
 
     /**
-     * A Boolean value that indicates whether to hide the 1px hairline shadow
+     * A Boolean value that indicates whether to hide the 1px hairline shadow by default
      */
     shadowHidden: PropTypes.bool,
 
@@ -267,24 +289,33 @@ var NavigatorIOS = React.createClass({
     itemWrapperStyle: View.propTypes.style,
 
     /**
-     * The color used for buttons in the navigation bar
+     * The default color used for buttons in the navigation bar
      */
     tintColor: PropTypes.string,
 
     /**
-     * The background color of the navigation bar
+     * The default background color of the navigation bar
      */
     barTintColor: PropTypes.string,
 
     /**
-     * The text color of the navigation bar title
+     * The default text color of the navigation bar title
      */
     titleTextColor: PropTypes.string,
 
     /**
-     * A Boolean value that indicates whether the navigation bar is translucent
+     * A Boolean value that indicates whether the navigation bar is translucent by default
      */
     translucent: PropTypes.bool,
+
+    /**
+     * A Boolean value that indicates whether the interactive pop gesture is enabled. Useful
+     * for enabling/disabling the back swipe navigation gesture. If this prop is not provided,
+     * the default behavior is for the back swipe gesture to be enabled when the navigation bar
+     * is shown and disabled when the navigation bar is hidden. Once you've provided
+     * the interactivePopGestureEnabled prop, you can never restore the default behavior.
+     */
+    interactivePopGestureEnabled: PropTypes.bool,
 
   },
 
@@ -456,6 +487,9 @@ var NavigatorIOS = React.createClass({
     this.navigationContext.emit('willfocus', {route: route});
   },
 
+  /**
+   * Navigate forward to a new route
+   */
   push: function(route: Route) {
     invariant(!!route, 'Must supply route to push');
     // Make sure all previous requests are caught up first. Otherwise reject.
@@ -478,6 +512,9 @@ var NavigatorIOS = React.createClass({
     }
   },
 
+  /**
+   * Go back N pages at once. When N=1, behavior matches `pop()`
+   */
   popN: function(n: number) {
     if (n === 0) {
       return;
@@ -492,15 +529,16 @@ var NavigatorIOS = React.createClass({
           this.setState({
             requestedTopOfStack: newRequestedTopOfStack,
             makingNavigatorRequest: true,
-            // Not actually updating the indices yet until we get the native
-            // `onNavigationComplete`.
-            updatingAllIndicesAtOrBeyond: null,
+            updatingAllIndicesAtOrBeyond: this.state.requestedTopOfStack - n,
           });
         });
       }
     }
   },
 
+  /**
+   * Go back one page
+   */
   pop: function() {
     this.popN(1);
   },
@@ -540,23 +578,30 @@ var NavigatorIOS = React.createClass({
   },
 
   /**
-   * Replaces the top of the navigation stack.
+   * Replace the route for the current page and immediately
+   * load the view for the new route.
    */
   replace: function(route: Route) {
     this.replaceAtIndex(route, -1);
   },
 
   /**
-   * Replace the current route's parent.
+   * Replace the route/view for the previous page.
    */
   replacePrevious: function(route: Route) {
     this.replaceAtIndex(route, -2);
   },
 
+  /**
+   * Go back to the top item
+   */
   popToTop: function() {
     this.popToRoute(this.state.routeStack[0]);
   },
 
+  /**
+   * Go back to the item for a particular route object
+   */
   popToRoute: function(route: Route) {
     var indexOfRoute = this.state.routeStack.indexOf(route);
     invariant(
@@ -567,6 +612,9 @@ var NavigatorIOS = React.createClass({
     this.popN(numToPop);
   },
 
+  /**
+   * Replaces the previous route/view and transitions back to it.
+   */
   replacePreviousAndPop: function(route: Route) {
     // Make sure all previous requests are caught up first. Otherwise reject.
     if (this.state.requestedTopOfStack !== this.state.observedTopOfStack) {
@@ -584,6 +632,9 @@ var NavigatorIOS = React.createClass({
     });
   },
 
+  /**
+   * Replaces the top item and popToTop
+   */
   resetTo: function(route: Route) {
     invariant(!!route, 'Must supply route to push');
     // Make sure all previous requests are caught up first. Otherwise reject.
@@ -594,7 +645,7 @@ var NavigatorIOS = React.createClass({
     this.popToRoute(route);
   },
 
-  handleNavigationComplete: function(e: Event) {
+  _handleNavigationComplete: function(e: Event) {
     if (this._toFocusOnNavigationComplete) {
       this._getFocusEmitter().emit('focus', this._toFocusOnNavigationComplete);
       this._toFocusOnNavigationComplete = null;
@@ -602,18 +653,18 @@ var NavigatorIOS = React.createClass({
     this._handleNavigatorStackChanged(e);
   },
 
-  _routeToStackItem: function(route: Route, i: number) {
-    var {component, wrapperStyle, passProps, ...route} = route;
+  _routeToStackItem: function(routeArg: Route, i: number) {
+    var {component, wrapperStyle, passProps, ...route} = routeArg;
     var {itemWrapperStyle, ...props} = this.props;
     var shouldUpdateChild =
-      this.state.updatingAllIndicesAtOrBeyond &&
+      this.state.updatingAllIndicesAtOrBeyond != null &&
       this.state.updatingAllIndicesAtOrBeyond >= i;
     var Component = component;
     return (
       <StaticContainer key={'nav' + i} shouldUpdate={shouldUpdateChild}>
         <RCTNavigatorItem
-          {...route}
           {...props}
+          {...route}
           style={[
             styles.stackItem,
             itemWrapperStyle,
@@ -629,7 +680,7 @@ var NavigatorIOS = React.createClass({
     );
   },
 
-  renderNavigationStackItems: function() {
+  _renderNavigationStackItems: function() {
     var shouldRecurseToNavigator =
       this.state.makingNavigatorRequest ||
       this.state.updatingAllIndicesAtOrBeyond !== null;
@@ -644,7 +695,8 @@ var NavigatorIOS = React.createClass({
           style={styles.transitioner}
           vertical={this.props.vertical}
           requestedTopOfStack={this.state.requestedTopOfStack}
-          onNavigationComplete={this.handleNavigationComplete}>
+          onNavigationComplete={this._handleNavigationComplete}
+          interactivePopGestureEnabled={this.props.interactivePopGestureEnabled}>
           {items}
         </NavigatorTransitionerIOS>
       </StaticContainer>
@@ -654,7 +706,7 @@ var NavigatorIOS = React.createClass({
   render: function() {
     return (
       <View style={this.props.style}>
-        {this.renderNavigationStackItems()}
+        {this._renderNavigationStackItems()}
       </View>
     );
   },

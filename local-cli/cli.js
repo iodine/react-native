@@ -10,7 +10,8 @@
 
 require('../packager/babelRegisterOnly')([
   /private-cli\/src/,
-  /local-cli/
+  /local-cli/,
+  /react-packager\/src/
 ]);
 
 var bundle = require('./bundle/bundle');
@@ -18,18 +19,18 @@ var childProcess = require('child_process');
 var Config = require('./util/Config');
 var defaultConfig = require('./default.config');
 var dependencies = require('./dependencies/dependencies');
-var fs = require('fs');
 var generate = require('./generate/generate');
 var library = require('./library/library');
-var link = require('./library/link');
 var path = require('path');
 var Promise = require('promise');
 var runAndroid = require('./runAndroid/runAndroid');
+var runIOS = require('./runIOS/runIOS');
 var server = require('./server/server');
 var TerminalAdapter = require('yeoman-environment/lib/adapter.js');
 var yeoman = require('yeoman-environment');
 var unbundle = require('./bundle/unbundle');
 var upgrade = require('./upgrade/upgrade');
+var version = require('./version/version');
 
 var fs = require('fs');
 var gracefulFs = require('graceful-fs');
@@ -43,9 +44,9 @@ var documentedCommands = {
   'bundle': [bundle, 'builds the javascript bundle for offline use'],
   'unbundle': [unbundle, 'builds javascript as "unbundle" for offline use'],
   'new-library': [library, 'generates a native library bridge'],
-  'link': [link, 'Adds a third-party library to your project. Example: react-native link awesome-camera'],
   'android': [generateWrapper, 'generates an Android project for your app'],
   'run-android': [runAndroid, 'builds your app and starts it on a connected Android emulator or device'],
+  'run-ios': [runIOS, 'builds your app and starts it on iOS simulator'],
   'upgrade': [upgrade, 'upgrade your app\'s template files to the latest version; run this after ' +
                        'updating the react-native version in your package.json and running npm install']
 };
@@ -56,6 +57,7 @@ Object.keys(documentedCommands).forEach(function(command) {
 });
 
 var undocumentedCommands = {
+  '--version': [version, ''],
   'init': [printInitWarning, ''],
 };
 
@@ -70,7 +72,7 @@ function run() {
     printUsage();
   }
 
-  const setupEnvScript = /^win/.test(process.platform)
+  var setupEnvScript = /^win/.test(process.platform)
     ? 'setup_env.bat'
     : 'setup_env.sh';
   childProcess.execFileSync(path.join(__dirname, setupEnvScript));

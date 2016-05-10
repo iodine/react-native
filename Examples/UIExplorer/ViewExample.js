@@ -16,12 +16,13 @@
 'use strict';
 
 var Platform = require('Platform');
-var React = require('react-native');
+var React = require('react');
+var ReactNative = require('react-native');
 var {
   StyleSheet,
   Text,
   View,
-} = React;
+} = ReactNative;
 var TouchableWithoutFeedback = require('TouchableWithoutFeedback');
 
 var styles = StyleSheet.create({
@@ -40,22 +41,11 @@ var ViewBorderStyleExample = React.createClass({
   },
 
   render() {
-    if (Platform.OS !== 'android') {
-      return (
-        <View style={{backgroundColor: 'red'}}>
-          <Text style={{color: 'white'}}>
-            borderStyle is only supported on android for now.
-          </Text>
-        </View>
-      );
-    }
-
     return (
       <TouchableWithoutFeedback onPress={this._handlePress}>
         <View>
           <View style={{
             borderWidth: 1,
-            borderRadius: 5,
             borderStyle: this.state.showBorder ? 'dashed' : null,
             padding: 5
           }}>

@@ -41,6 +41,7 @@ Object.keys(RemoteModules).forEach((moduleName) => {
 const NativeModules = {};
 Object.keys(RemoteModules).forEach((moduleName) => {
   Object.defineProperty(NativeModules, moduleName, {
+    configurable: true,
     enumerable: true,
     get: () => {
       let module = RemoteModules[moduleName];
@@ -53,37 +54,6 @@ Object.keys(RemoteModules).forEach((moduleName) => {
       return module;
     },
   });
-});
-
-/**
- * Copies the ViewManager constants into UIManager. This is only
- * needed for iOS, which puts the constants in the ViewManager
- * namespace instead of UIManager, unlike Android.
- *
- * We'll eventually move this logic to UIManager.js, once all
- * the call sites accessing NativeModules.UIManager directly have
- * been removed #9344445
- */
-const UIManager = NativeModules.UIManager;
-UIManager && Object.keys(UIManager).forEach(viewName => {
-  const viewConfig = UIManager[viewName];
-  const constants = {};
-  if (viewConfig.Manager) {
-    /* $FlowFixMe - nice try. Flow doesn't like getters */
-    Object.defineProperty(viewConfig, 'Constants', {
-      enumerable: true,
-      get: () => {
-        const viewManager = NativeModules[normalizePrefix(viewConfig.Manager)];
-        viewManager && Object.keys(viewManager).forEach(key => {
-          const value = viewManager[key];
-          if (typeof value !== 'function') {
-            constants[key] = value;
-          }
-        });
-        return constants;
-      },
-    });
-  }
 });
 
 module.exports = NativeModules;

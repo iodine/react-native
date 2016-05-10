@@ -20,7 +20,7 @@
 
 static NSString *const RCTStorageDirectory = @"RCTAsyncLocalStorage_V1";
 static NSString *const RCTManifestFileName = @"manifest.json";
-static const NSUInteger RCTInlineValueThreshold = 100;
+static const NSUInteger RCTInlineValueThreshold = 1024;
 
 #pragma mark - Static helper functions
 
@@ -117,7 +117,7 @@ static dispatch_queue_t RCTGetMethodQueue()
   static dispatch_queue_t queue;
   static dispatch_once_t onceToken;
   dispatch_once(&onceToken, ^{
-    queue = dispatch_queue_create("com.facebook.React.AsyncLocalStorageQueue", DISPATCH_QUEUE_SERIAL);
+    queue = dispatch_queue_create("com.facebook.react.AsyncLocalStorageQueue", DISPATCH_QUEUE_SERIAL);
   });
   return queue;
 }
