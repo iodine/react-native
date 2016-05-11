@@ -35,17 +35,23 @@ NSString *const RCTRemoteNotificationsRegistered = @"RemoteNotificationsRegister
   NSDictionary<NSString *, id> *details = [self NSDictionary:json];
   UILocalNotification *notification = [UILocalNotification new];
   notification.fireDate = [RCTConvert NSDate:details[@"fireDate"]] ?: [NSDate date];
-  notification.alertBody = [RCTConvert NSString:details[@"alertBody"]];
-  notification.alertAction = [RCTConvert NSString:details[@"alertAction"]];
-  notification.soundName = [RCTConvert NSString:details[@"soundName"]] ?: UILocalNotificationDefaultSoundName;
-  notification.userInfo = [RCTConvert NSDictionary:details[@"userInfo"]];
-  notification.category = [RCTConvert NSString:details[@"category"]];
+  notification.alertBody = [RCTConvert NSString:details[@"alertBody"]] ?: nil;
+  notification.soundName = [RCTConvert NSString:details[@"soundName"]] ?: nil;
+  notification.applicationIconBadgeNumber = [RCTConvert NSInteger:details[@"badgeCount"]] ?: nil;
+  notification.userInfo = [RCTConvert NSDictionary:details[@"userInfo"]] ?: nil;
+  if ([[[UIDevice currentDevice] systemVersion] floatValue] >= 8.0) {
+    notification.category = [RCTConvert NSString:details[@"category"]] ?: nil;
+  }
   return notification;
 }
 
 @end
 
 @implementation RCTPushNotificationManager
+{
+  NSDictionary *_initialNotification;
+}
+
 
 RCT_EXPORT_MODULE()
 
@@ -72,13 +78,21 @@ RCT_EXPORT_MODULE()
                                            selector:@selector(handleRemoteNotificationsRegistered:)
                                                name:RCTRemoteNotificationsRegistered
                                              object:nil];
+
+  if (bridge.launchOptions[UIApplicationLaunchOptionsRemoteNotificationKey]) {
+    _initialNotification =
+      [bridge.launchOptions[UIApplicationLaunchOptionsRemoteNotificationKey] copy];
+  } else if (bridge.launchOptions[UIApplicationLaunchOptionsLocalNotificationKey]) {
+    UILocalNotification *localNotification =
+      [bridge.launchOptions[UIApplicationLaunchOptionsLocalNotificationKey] copy];
+
+    _initialNotification = [RCTPushNotificationManager extractLocalNotificationData:localNotification withActionIdentifier:nil];
+  }
 }
 
 - (NSDictionary<NSString *, id> *)constantsToExport
 {
-  NSDictionary<NSString *, id> *initialNotification =
-    [_bridge.launchOptions[UIApplicationLaunchOptionsRemoteNotificationKey] copy];
-  return @{@"initialNotification": RCTNullIfNil(initialNotification)};
+  return @{@"initialNotification": RCTNullIfNil(_initialNotification)};
 }
 
 + (void)didRegisterUserNotificationSettings:(__unused UIUserNotificationSettings *)notificationSettings
@@ -103,20 +117,38 @@ RCT_EXPORT_MODULE()
 
 + (void)didReceiveRemoteNotification:(NSDictionary *)notification
 {
+  NSMutableDictionary *userInfo = [NSMutableDictionary dictionaryWithDictionary:notification];
+  UIApplication* application = [UIApplication sharedApplication];
+  if (application.applicationState == UIApplicationStateActive) {
+    userInfo[@"applicationState"] = @"active";
+  } else {
+    userInfo[@"applicationState"] = @"background";
+  }
+
   [[NSNotificationCenter defaultCenter] postNotificationName:RCTRemoteNotificationReceived
                                                       object:self
-                                                    userInfo:notification];
+                                                    userInfo:userInfo];
 }
 
 + (void)didReceiveLocalNotification:(UILocalNotification *)notification
 {
-  NSMutableDictionary *details = [NSMutableDictionary new];
+  NSDictionary *baseNotificationData = [RCTPushNotificationManager extractLocalNotificationData:notification 
+                                                                           withActionIdentifier:nil];
+  NSMutableDictionary *details = [NSMutableDictionary dictionaryWithDictionary:baseNotificationData];
   if (notification.alertBody) {
     details[@"alertBody"] = notification.alertBody;
   }
   if (notification.userInfo) {
     details[@"userInfo"] = RCTJSONClean(notification.userInfo);
   }
+
+  UIApplication* application = [UIApplication sharedApplication];
+  if (application.applicationState == UIApplicationStateActive) {
+    details[@"applicationState"] = @"active";
+  } else {
+    details[@"applicationState"] = @"background";
+  }
+
   [[NSNotificationCenter defaultCenter] postNotificationName:RCTLocalNotificationReceived
                                                       object:self
                                                     userInfo:details];
@@ -124,6 +156,10 @@ RCT_EXPORT_MODULE()
 
 - (void)handleLocalNotificationReceived:(NSNotification *)notification
 {
+  /* TODO(brentvatne): */
+  /* Need to check if it has an action associated with it and only set as initialNotification
+   * in that case. Revisit later, time constrained at moment and is harmless */
+  _initialNotification = [notification userInfo];
   [_bridge.eventDispatcher sendDeviceEventWithName:@"localNotificationReceived"
                                               body:notification.userInfo];
 }
@@ -138,6 +174,40 @@ RCT_EXPORT_MODULE()
 {
   [_bridge.eventDispatcher sendDeviceEventWithName:@"remoteNotificationsRegistered"
                                               body:notification.userInfo];
+}
+
++ (NSDictionary*)extractLocalNotificationData:(UILocalNotification *)localNotification withActionIdentifier:(nullable NSString *)identifier {
+  NSDictionary *baseNotificationData = @{
+    @"aps": @{
+      @"alert": localNotification.alertBody,
+      @"sound": localNotification.soundName?: @"",
+      @"badge": @(localNotification.applicationIconBadgeNumber)
+ ?: @0
+    },
+    @"userInfo": localNotification.userInfo
+  };
+
+  NSMutableDictionary *notificationData = [NSMutableDictionary dictionaryWithDictionary:baseNotificationData];
+
+  if (localNotification.fireDate) {
+    [notificationData setObject:[NSString stringWithFormat:@"%d",(int)[localNotification.fireDate timeIntervalSince1970]]
+                         forKey: @"fireDate"];
+  }
+
+  if (identifier) {
+    [notificationData setObject:identifier forKey:@"actionIdentifier"];
+  }
+
+  return notificationData;
+}
+
+/* note(brentvatne): */
+/* Could rewrite this as pop as well, just would need to clear the _initialNotification value */
+RCT_EXPORT_METHOD(getInitialNotification:(RCTResponseSenderBlock)callback)
+{
+  callback(@[
+     RCTNullIfNil(_initialNotification)
+   ]);
 }
 
 /**
@@ -248,6 +318,43 @@ RCT_EXPORT_METHOD(cancelLocalNotifications:(NSDictionary *)userInfo)
     if (matchesAll) {
       [[UIApplication sharedApplication] cancelLocalNotification:notification];
     }
+  }
+}
+
+RCT_EXPORT_METHOD(registerNotificationActionsForCategory:(NSDictionary*)actionsForCategory)
+{
+  if ([[[UIDevice currentDevice] systemVersion] floatValue] >= 8.0 && actionsForCategory) {
+    UIMutableUserNotificationAction *action1;
+    action1 = [[UIMutableUserNotificationAction alloc] init];
+    [action1 setActivationMode:UIUserNotificationActivationModeBackground];
+    [action1 setTitle:actionsForCategory[@"firstActionTitle"]];
+    [action1 setIdentifier:actionsForCategory[@"firstActionId"]];
+    [action1 setDestructive:NO];
+    [action1 setAuthenticationRequired:YES];
+
+    UIMutableUserNotificationAction *action2;
+    action2 = [[UIMutableUserNotificationAction alloc] init];
+    [action2 setActivationMode:UIUserNotificationActivationModeBackground];
+    [action2 setTitle:actionsForCategory[@"secondActionTitle"]];
+    [action2 setIdentifier:actionsForCategory[@"secondActionId"]];
+    [action2 setDestructive:NO];
+    [action2 setAuthenticationRequired:YES];
+
+    UIMutableUserNotificationCategory *actionCategory;
+    actionCategory = [[UIMutableUserNotificationCategory alloc] init];
+    [actionCategory setIdentifier:actionsForCategory[@"categoryId"]];
+    [actionCategory setActions:@[action1, action2]
+                    forContext:UIUserNotificationActionContextDefault];
+
+    NSSet *categories = [NSSet setWithObject:actionCategory];
+
+    UIUserNotificationType types = [[RCTSharedApplication() currentUserNotificationSettings] types];
+
+    UIUserNotificationSettings *settings;
+    settings = [UIUserNotificationSettings settingsForTypes:types
+                                                 categories:categories];
+
+    [RCTSharedApplication() registerUserNotificationSettings:settings];
   }
 }
 

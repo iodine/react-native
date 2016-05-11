@@ -104,6 +104,17 @@ class PushNotificationIOS {
     RCTPushNotificationManager.scheduleLocalNotification(details);
   }
 
+  static registerNotificationActionsForCategory(actionsForCategory: Object) {
+    RCTPushNotificationManager.registerNotificationActionsForCategory(actionsForCategory);
+  }
+
+  /**
+   * Cancel all scheduled local notifications.
+   */
+  static cancelLocalNotifications() {
+    RCTPushNotificationManager.cancelLocalNotifications();
+  }
+
   /**
    * Cancels all scheduled localNotifications
    */
@@ -261,7 +272,6 @@ class PushNotificationIOS {
     _notifHandlers.delete(handler);
   }
 
-
   /**
    * An initial notification will be available if the app was cold-launched
    * from a notification.
@@ -276,6 +286,18 @@ class PushNotificationIOS {
     return initialNotification;
   }
 
+  static getInitialNotification() {
+    return new Promise((resolve, reject) => {
+      RCTPushNotificationManager.getInitialNotification((notification) => {
+        if (notification) {
+          resolve(new PushNotificationIOS(notification));
+        } else {
+          resolve(null);
+        }
+      });
+    });
+  }
+
   /**
    * You will never need to instantiate `PushNotificationIOS` yourself.
    * Listening to the `notification` event and invoking
@@ -285,9 +307,7 @@ class PushNotificationIOS {
     this._data = {};
 
     // Extract data from Apple's `aps` dict as defined:
-
     // https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html
-
     Object.keys(nativeNotif).forEach((notifKey) => {
       var notifVal = nativeNotif[notifKey];
       if (notifKey === 'aps') {
