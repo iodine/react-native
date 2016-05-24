@@ -98,7 +98,7 @@ RCT_EXPORT_MODULE()
 + (void)didRegisterUserNotificationSettings:(__unused UIUserNotificationSettings *)notificationSettings
 {
   if ([UIApplication instancesRespondToSelector:@selector(registerForRemoteNotifications)]) {
-    [[UIApplication sharedApplication] registerForRemoteNotifications];
+    [RCTSharedApplication() registerForRemoteNotifications];
   }
 }
 
@@ -118,7 +118,7 @@ RCT_EXPORT_MODULE()
 + (void)didReceiveRemoteNotification:(NSDictionary *)notification
 {
   NSMutableDictionary *userInfo = [NSMutableDictionary dictionaryWithDictionary:notification];
-  UIApplication* application = [UIApplication sharedApplication];
+  UIApplication* application = RCTSharedApplication();
   if (application.applicationState == UIApplicationStateActive) {
     userInfo[@"applicationState"] = @"active";
   } else {
@@ -142,7 +142,7 @@ RCT_EXPORT_MODULE()
     details[@"userInfo"] = RCTJSONClean(notification.userInfo);
   }
 
-  UIApplication* application = [UIApplication sharedApplication];
+  UIApplication* application = RCTSharedApplication();
   if (application.applicationState == UIApplicationStateActive) {
     details[@"applicationState"] = @"active";
   } else {
@@ -181,8 +181,7 @@ RCT_EXPORT_MODULE()
     @"aps": @{
       @"alert": localNotification.alertBody,
       @"sound": localNotification.soundName?: @"",
-      @"badge": @(localNotification.applicationIconBadgeNumber)
- ?: @0
+      @"badge": @(localNotification.applicationIconBadgeNumber)?: @0
     },
     @"userInfo": localNotification.userInfo
   };
@@ -205,8 +204,8 @@ RCT_EXPORT_MODULE()
 RCT_EXPORT_METHOD(getInitialNotification:(RCTResponseSenderBlock)callback)
 {
   callback(@[
-     RCTNullIfNil(_initialNotification)
-   ]);
+    RCTNullIfNil(_initialNotification)
+  ]);
 }
 
 /**
@@ -305,7 +304,7 @@ RCT_EXPORT_METHOD(cancelAllLocalNotifications)
 
 RCT_EXPORT_METHOD(cancelLocalNotifications:(NSDictionary *)userInfo)
 {
-  for (UILocalNotification *notification in [UIApplication sharedApplication].scheduledLocalNotifications) {
+  for (UILocalNotification *notification in RCTSharedApplication().scheduledLocalNotifications) {
     __block BOOL matchesAll = YES;
     NSDictionary *notificationInfo = notification.userInfo;
     [userInfo enumerateKeysAndObjectsUsingBlock:^(NSString *key, id obj, BOOL *stop) {
@@ -315,7 +314,7 @@ RCT_EXPORT_METHOD(cancelLocalNotifications:(NSDictionary *)userInfo)
       }
     }];
     if (matchesAll) {
-      [[UIApplication sharedApplication] cancelLocalNotification:notification];
+      [RCTSharedApplication() cancelLocalNotification:notification];
     }
   }
 }
@@ -323,26 +322,24 @@ RCT_EXPORT_METHOD(cancelLocalNotifications:(NSDictionary *)userInfo)
 RCT_EXPORT_METHOD(registerNotificationActionsForCategory:(NSDictionary*)actionsForCategory)
 {
   if ([[[UIDevice currentDevice] systemVersion] floatValue] >= 8.0 && actionsForCategory) {
-    UIMutableUserNotificationAction *action1;
-    action1 = [[UIMutableUserNotificationAction alloc] init];
-    [action1 setActivationMode:UIUserNotificationActivationModeBackground];
-    [action1 setTitle:actionsForCategory[@"firstActionTitle"]];
-    [action1 setIdentifier:actionsForCategory[@"firstActionId"]];
-    [action1 setDestructive:NO];
-    [action1 setAuthenticationRequired:YES];
+    NSMutableArray *actions = [[NSMutableArray alloc] init];
 
-    UIMutableUserNotificationAction *action2;
-    action2 = [[UIMutableUserNotificationAction alloc] init];
-    [action2 setActivationMode:UIUserNotificationActivationModeBackground];
-    [action2 setTitle:actionsForCategory[@"secondActionTitle"]];
-    [action2 setIdentifier:actionsForCategory[@"secondActionId"]];
-    [action2 setDestructive:NO];
-    [action2 setAuthenticationRequired:YES];
+    if (actionsForCategory[@"actions"]) {
+      for (NSDictionary *actionConfig in actionsForCategory[@"actions"]) {
+        UIMutableUserNotificationAction *action = [[UIMutableUserNotificationAction alloc] init];
+        [action setActivationMode:UIUserNotificationActivationModeBackground];
+        [action setTitle:actionConfig[@"title"]];
+        [action setIdentifier:actionConfig[@"id"]];
+        [action setDestructive:NO];
+        [action setAuthenticationRequired:YES];
+        [actions addObject:action];
+      }
+    }
 
     UIMutableUserNotificationCategory *actionCategory;
     actionCategory = [[UIMutableUserNotificationCategory alloc] init];
-    [actionCategory setIdentifier:actionsForCategory[@"categoryId"]];
-    [actionCategory setActions:@[action1, action2]
+    [actionCategory setIdentifier:actionsForCategory[@"id"]];
+    [actionCategory setActions:actions
                     forContext:UIUserNotificationActionContextDefault];
 
     NSSet *categories = [NSSet setWithObject:actionCategory];
