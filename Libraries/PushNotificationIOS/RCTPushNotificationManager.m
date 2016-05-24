@@ -132,7 +132,7 @@ RCT_EXPORT_MODULE()
 
 + (void)didReceiveLocalNotification:(UILocalNotification *)notification
 {
-  NSDictionary *baseNotificationData = [RCTPushNotificationManager extractLocalNotificationData:notification 
+  NSDictionary *baseNotificationData = [RCTPushNotificationManager extractLocalNotificationData:notification
                                                                            withActionIdentifier:nil];
   NSMutableDictionary *details = [NSMutableDictionary dictionaryWithDictionary:baseNotificationData];
   if (notification.alertBody) {
@@ -190,12 +190,11 @@ RCT_EXPORT_MODULE()
   NSMutableDictionary *notificationData = [NSMutableDictionary dictionaryWithDictionary:baseNotificationData];
 
   if (localNotification.fireDate) {
-    [notificationData setObject:[NSString stringWithFormat:@"%d",(int)[localNotification.fireDate timeIntervalSince1970]]
-                         forKey: @"fireDate"];
+    notificationData[@"fireDate"] = [NSString stringWithFormat:@"%d",(int)[localNotification.fireDate timeIntervalSince1970]];
   }
 
   if (identifier) {
-    [notificationData setObject:identifier forKey:@"actionIdentifier"];
+    notificationData[@"actionIdentifier"] = identifier;
   }
 
   return notificationData;
