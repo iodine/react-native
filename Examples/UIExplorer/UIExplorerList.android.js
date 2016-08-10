@@ -24,6 +24,10 @@ export type UIExplorerExample = {
 
 var ComponentExamples: Array<UIExplorerExample> = [
   {
+    key: 'ActivityIndicatorExample',
+    module: require('./ActivityIndicatorExample'),
+  },
+  {
     key: 'SliderExample',
     module: require('./SliderExample'),
   },
@@ -40,8 +44,8 @@ var ComponentExamples: Array<UIExplorerExample> = [
     module: require('./ModalExample'),
   },
   {
-    key: 'PickerAndroidExample',
-    module: require('./PickerAndroidExample'),
+    key: 'PickerExample',
+    module: require('./PickerExample'),
   },
   {
     key: 'ProgressBarAndroidExample',
@@ -139,6 +143,10 @@ const APIExamples = [
     module: require('./LinkingExample'),
   },
   {
+    key: 'LayoutAnimationExample',
+    module: require('./LayoutAnimationExample'),
+  },
+  {
     key: 'LayoutExample',
     module: require('./LayoutExample'),
   },
@@ -173,6 +181,10 @@ const APIExamples = [
   {
     key: 'VibrationExample',
     module: require('./VibrationExample'),
+  },
+  {
+    key: 'WebSocketExample',
+    module: require('./WebSocketExample'),
   },
   {
     key: 'XHRExample',
