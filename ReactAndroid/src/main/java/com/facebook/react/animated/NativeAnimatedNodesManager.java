@@ -72,6 +72,12 @@ import javax.annotation.Nullable;
       mUpdatedNodes.add(node);
     } else if ("props".equals(type)) {
       node = new PropsAnimatedNode(config, this);
+    } else if ("interpolation".equals(type)) {
+      node = new InterpolationAnimatedNode(config);
+    } else if ("addition".equals(type)) {
+      node = new AdditionAnimatedNode(config, this);
+    } else if ("multiplication".equals(type)) {
+      node = new MultiplicationAnimatedNode(config, this);
     } else {
       throw new JSApplicationIllegalArgumentException("Unsupported node type: " + type);
     }
@@ -81,6 +87,24 @@ import javax.annotation.Nullable;
 
   public void dropAnimatedNode(int tag) {
     mAnimatedNodes.remove(tag);
+  }
+
+  public void startListeningToAnimatedNodeValue(int tag, AnimatedNodeValueListener listener) {
+    AnimatedNode node = mAnimatedNodes.get(tag);
+    if (node == null || !(node instanceof ValueAnimatedNode)) {
+      throw new JSApplicationIllegalArgumentException("Animated node with tag " + tag +
+              " does not exists or is not a 'value' node");
+    }
+    ((ValueAnimatedNode) node).setValueListener(listener);
+  }
+
+  public void stopListeningToAnimatedNodeValue(int tag) {
+    AnimatedNode node = mAnimatedNodes.get(tag);
+    if (node == null || !(node instanceof ValueAnimatedNode)) {
+      throw new JSApplicationIllegalArgumentException("Animated node with tag " + tag +
+              " does not exists or is not a 'value' node");
+    }
+    ((ValueAnimatedNode) node).setValueListener(null);
   }
 
   public void setAnimatedNodeValue(int tag, double value) {
@@ -94,6 +118,7 @@ import javax.annotation.Nullable;
   }
 
   public void startAnimatingNode(
+    int animationId,
     int animatedNodeTag,
     ReadableMap animationConfig,
     Callback endCallback) {
@@ -113,9 +138,32 @@ import javax.annotation.Nullable;
     } else {
       throw new JSApplicationIllegalArgumentException("Unsupported animation type: " + type);
     }
+    animation.mId = animationId;
     animation.mEndCallback = endCallback;
     animation.mAnimatedValue = (ValueAnimatedNode) node;
     mActiveAnimations.add(animation);
+  }
+
+  public void stopAnimation(int animationId) {
+    // in most of the cases there should never be more than a few active animations running at the
+    // same time. Therefore it does not make much sense to create an animationId -> animation
+    // object map that would require additional memory just to support the use-case of stopping
+    // an animation
+    for (int i = 0; i < mActiveAnimations.size(); i++) {
+      AnimationDriver animation = mActiveAnimations.get(i);
+      if (animation.mId == animationId) {
+        // Invoke animation end callback with {finished: false}
+        WritableMap endCallbackResponse = Arguments.createMap();
+        endCallbackResponse.putBoolean("finished", false);
+        animation.mEndCallback.invoke(endCallbackResponse);
+        mActiveAnimations.remove(i);
+        return;
+      }
+    }
+    // Do not throw an error in the case animation could not be found. We only keep "active"
+    // animations in the registry and there is a chance that Animated.js will enqueue a
+    // stopAnimation call after the animation has ended or the call will reach native thread only
+    // when the animation is already over.
   }
 
   public void connectAnimatedNodes(int parentNodeTag, int childNodeTag) {
@@ -293,6 +341,10 @@ import javax.annotation.Nullable;
       if (nextNode instanceof PropsAnimatedNode) {
         // Send property updates to native view manager
         ((PropsAnimatedNode) nextNode).updateView(mUIImplementation);
+      }
+      if (nextNode instanceof ValueAnimatedNode) {
+        // Potentially send events to JS when the node's value is updated
+        ((ValueAnimatedNode) nextNode).onValueUpdate();
       }
       if (nextNode.mChildren != null) {
         for (int i = 0; i < nextNode.mChildren.size(); i++) {

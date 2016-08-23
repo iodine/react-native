@@ -8,7 +8,7 @@
  */
 'use strict';
 
-jest.autoMockOff();
+jest.disableAutomock();
 
 jest
   .setMock('worker-farm', () => () => undefined)
@@ -17,7 +17,7 @@ jest
   .mock('fs')
   .mock('assert')
   .mock('progress')
-  .mock('node-haste')
+  .mock('../../node-haste')
   .mock('../../JSTransformer')
   .mock('../../lib/declareOpts')
   .mock('../../Resolver')
@@ -68,8 +68,8 @@ describe('Bundler', function() {
   var projectRoots;
 
   beforeEach(function() {
-    getDependencies = jest.genMockFn();
-    getModuleSystemDependencies = jest.genMockFn();
+    getDependencies = jest.fn();
+    getModuleSystemDependencies = jest.fn();
     projectRoots = ['/root'];
 
     Resolver.mockImpl(function() {
@@ -90,7 +90,7 @@ describe('Bundler', function() {
     });
 
     assetServer = {
-      getAssetData: jest.genMockFn(),
+      getAssetData: jest.fn(),
     };
 
     bundler = new Bundler({
@@ -128,6 +128,7 @@ describe('Bundler', function() {
         mainModuleId: 'foo',
         dependencies: modules,
         transformOptions,
+        getModuleId: () => 123,
       })
     );
 
@@ -173,7 +174,7 @@ describe('Bundler', function() {
           {runMainModule: true, runBeforeMainModule: []}
         ]);
 
-        expect(bundle.addAsset.mock.calls).toContain([{
+        expect(bundle.addAsset.mock.calls[0]).toEqual([{
           __packager_asset: true,
           path: '/root/img/img.png',
           uri: 'img',
@@ -182,7 +183,7 @@ describe('Bundler', function() {
           deprecated: true,
         }]);
 
-        expect(bundle.addAsset.mock.calls).toContain([{
+        expect(bundle.addAsset.mock.calls[1]).toEqual([{
           __packager_asset: true,
           fileSystemLocation: '/root/img',
           httpServerLocation: '/assets/img',
@@ -207,7 +208,8 @@ describe('Bundler', function() {
   pit('gets the list of dependencies from the resolver', function() {
     const entryFile = '/root/foo.js';
     return bundler.getDependencies({entryFile, recursive: true}).then(() =>
-      expect(getDependencies).toBeCalledWith(
+      // jest calledWith does not support jasmine.any
+      expect(getDependencies.mock.calls[0].slice(0, -2)).toEqual([
         '/root/foo.js',
         { dev: true, recursive: true },
         { minify: false,
@@ -219,8 +221,7 @@ describe('Bundler', function() {
             projectRoots,
           }
         },
-        undefined,
-      )
+      ])
     );
   });
 

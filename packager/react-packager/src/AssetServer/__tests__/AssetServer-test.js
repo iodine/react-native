@@ -9,7 +9,7 @@
 
 'use strict';
 
-jest.autoMockOff();
+jest.disableAutomock();
 
 jest
   .mock('crypto')
@@ -23,8 +23,8 @@ var fs = require('fs');
 
 describe('AssetServer', () => {
   beforeEach(() => {
-    const NodeHaste = require('node-haste');
-    NodeHaste.getAssetDataFromName = require.requireActual('node-haste/lib/lib/getAssetDataFromName');
+    const NodeHaste = require('../../node-haste');
+    NodeHaste.getAssetDataFromName = require.requireActual('../../node-haste/lib/getAssetDataFromName');
   });
 
   describe('assetServer.get', () => {
@@ -199,8 +199,8 @@ describe('AssetServer', () => {
   describe('assetServer.getAssetData', () => {
     pit('should get assetData', () => {
       const hash = {
-        update: jest.genMockFn(),
-        digest: jest.genMockFn(),
+        update: jest.fn(),
+        digest: jest.fn(),
       };
 
       hash.digest.mockImpl(() => 'wow such hash');
@@ -241,8 +241,8 @@ describe('AssetServer', () => {
 
     pit('should get assetData for non-png images', () => {
       const hash = {
-        update: jest.genMockFn(),
-        digest: jest.genMockFn(),
+        update: jest.fn(),
+        digest: jest.fn(),
       };
 
       hash.digest.mockImpl(() => 'wow such hash');

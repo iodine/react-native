@@ -16,7 +16,7 @@ var NativeAnimatedModule = require('NativeModules').NativeAnimatedModule;
 var invariant = require('fbjs/lib/invariant');
 
 var __nativeAnimatedNodeTagCount = 1; /* used for animated nodes */
-var __nativeAnimationTagCount = 1; /* used for started animations */
+var __nativeAnimationIdCount = 1; /* used for started animations */
 
 type EndResult = {finished: bool};
 type EndCallback = (result: EndResult) => void;
@@ -30,6 +30,14 @@ var API = {
     assertNativeAnimatedModule();
     NativeAnimatedModule.createAnimatedNode(tag, config);
   },
+  startListeningToAnimatedNodeValue: function(tag: number) {
+    assertNativeAnimatedModule();
+    NativeAnimatedModule.startListeningToAnimatedNodeValue(tag);
+  },
+  stopListeningToAnimatedNodeValue: function(tag: number) {
+    assertNativeAnimatedModule();
+    NativeAnimatedModule.stopListeningToAnimatedNodeValue(tag);
+  },
   connectAnimatedNodes: function(parentTag: number, childTag: number): void {
     assertNativeAnimatedModule();
     NativeAnimatedModule.connectAnimatedNodes(parentTag, childTag);
@@ -38,9 +46,13 @@ var API = {
     assertNativeAnimatedModule();
     NativeAnimatedModule.disconnectAnimatedNodes(parentTag, childTag);
   },
-  startAnimatingNode: function(animationTag: number, nodeTag: number, config: Object, endCallback: EndCallback): void {
+  startAnimatingNode: function(animationId: number, nodeTag: number, config: Object, endCallback: EndCallback): void {
     assertNativeAnimatedModule();
-    NativeAnimatedModule.startAnimatingNode(nodeTag, config, endCallback);
+    NativeAnimatedModule.startAnimatingNode(animationId, nodeTag, config, endCallback);
+  },
+  stopAnimation: function(animationId: number) {
+    assertNativeAnimatedModule();
+    NativeAnimatedModule.stopAnimation(animationId);
   },
   setAnimatedNodeValue: function(nodeTag: number, value: number): void {
     assertNativeAnimatedModule();
@@ -70,14 +82,25 @@ var API = {
 var PROPS_WHITELIST = {
   style: {
     opacity: true,
-
+    transform: true,
     /* legacy android transform properties */
     scaleX: true,
     scaleY: true,
-    rotation: true,
     translateX: true,
     translateY: true,
   },
+};
+
+var TRANSFORM_WHITELIST = {
+  translateX: true,
+  translateY: true,
+  scale: true,
+  scaleX: true,
+  scaleY: true,
+  rotate: true,
+  rotateX: true,
+  rotateY: true,
+  perspective: true,
 };
 
 function validateProps(params: Object): void {
@@ -86,6 +109,14 @@ function validateProps(params: Object): void {
       throw new Error(`Property '${key}' is not supported by native animated module`);
     }
   }
+}
+
+function validateTransform(configs: Array<Object>): void {
+  configs.forEach((config) => {
+    if (!TRANSFORM_WHITELIST.hasOwnProperty(config.property)) {
+      throw new Error(`Property '${config.property}' is not supported by native animated module`);
+    }
+  });
 }
 
 function validateStyles(styles: Object): void {
@@ -97,23 +128,43 @@ function validateStyles(styles: Object): void {
   }
 }
 
+function validateInterpolation(config: Object): void {
+  var SUPPORTED_INTERPOLATION_PARAMS = {
+    inputRange: true,
+    outputRange: true,
+  };
+  for (var key in config) {
+    if (!SUPPORTED_INTERPOLATION_PARAMS.hasOwnProperty(key)) {
+      throw new Error(`Interpolation property '${key}' is not supported by native animated module`);
+    }
+  }
+}
+
 function generateNewNodeTag(): number {
   return __nativeAnimatedNodeTagCount++;
 }
 
-function generateNewAnimationTag(): number {
-  return __nativeAnimationTagCount++;
+function generateNewAnimationId(): number {
+  return __nativeAnimationIdCount++;
 }
 
 function assertNativeAnimatedModule(): void {
   invariant(NativeAnimatedModule, 'Native animated module is not available');
 }
 
+// TODO: remove this when iOS supports native listeners.
+function supportsNativeListener(): bool {
+  return !!NativeAnimatedModule.startListeningToAnimatedNodeValue;
+}
+
 module.exports = {
   API,
   validateProps,
   validateStyles,
+  validateTransform,
+  validateInterpolation,
   generateNewNodeTag,
-  generateNewAnimationTag,
+  generateNewAnimationId,
   assertNativeAnimatedModule,
+  supportsNativeListener,
 };
