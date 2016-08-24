@@ -18,6 +18,7 @@ import java.util.Map;
 import android.graphics.Bitmap;
 import android.os.Build;
 import android.text.TextUtils;
+import android.webkit.GeolocationPermissions;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.WebChromeClient;
@@ -41,6 +42,8 @@ import com.facebook.react.uimanager.UIManagerModule;
 import com.facebook.react.uimanager.annotations.ReactProp;
 import com.facebook.react.uimanager.events.Event;
 import com.facebook.react.uimanager.events.EventDispatcher;
+import android.content.Intent;
+import android.net.Uri;
 
 /**
  * Manages instances of {@link WebView}
@@ -75,6 +78,7 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
   public static final int COMMAND_GO_BACK = 1;
   public static final int COMMAND_GO_FORWARD = 2;
   public static final int COMMAND_RELOAD = 3;
+  public static final int COMMAND_STOP_LOADING = 4;
 
   // Use `webView.loadUrl("about:blank")` to reliably reset the view
   // state and release page resources (including any running JavaScript).
@@ -108,6 +112,18 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
               webView.getId(),
               SystemClock.nanoTime(),
               createWebViewEvent(webView, url)));
+    }
+
+    @Override
+    public boolean shouldOverrideUrlLoading(WebView view, String url) {
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+          return false;
+        } else {
+          Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url)); 
+          intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+          view.getContext().startActivity(intent);   
+          return true;   
+        }              
     }
 
     @Override
@@ -244,9 +260,16 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
   @Override
   protected WebView createViewInstance(ThemedReactContext reactContext) {
     ReactWebView webView = new ReactWebView(reactContext);
-    webView.setWebChromeClient(new WebChromeClient());
+    webView.setWebChromeClient(new WebChromeClient() {
+      @Override
+      public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+        callback.invoke(origin, true, false);
+      }
+    });
     reactContext.addLifecycleEventListener(webView);
     mWebViewConfig.configWebView(webView);
+    webView.getSettings().setBuiltInZoomControls(true);
+    webView.getSettings().setDisplayZoomControls(false);
 
     if (ReactBuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
       WebView.setWebContentsDebuggingEnabled(true);
@@ -350,7 +373,8 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
     return MapBuilder.of(
         "goBack", COMMAND_GO_BACK,
         "goForward", COMMAND_GO_FORWARD,
-        "reload", COMMAND_RELOAD);
+        "reload", COMMAND_RELOAD,
+        "stopLoading", COMMAND_STOP_LOADING);
   }
 
   @Override
@@ -364,6 +388,9 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
         break;
       case COMMAND_RELOAD:
         root.reload();
+        break;
+      case COMMAND_STOP_LOADING:
+        root.stopLoading();
         break;
     }
   }

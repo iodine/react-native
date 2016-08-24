@@ -65,8 +65,26 @@ public class ReactTextViewManager extends BaseViewManager<ReactTextView, ReactTe
       view.setGravityHorizontal(Gravity.RIGHT);
     } else if ("center".equals(textAlign)) {
       view.setGravityHorizontal(Gravity.CENTER_HORIZONTAL);
+    } else if ("justify".equals(textAlign)) {
+      // Fallback gracefully for cross-platform compat instead of error
+      view.setGravityHorizontal(Gravity.LEFT);
     } else {
       throw new JSApplicationIllegalArgumentException("Invalid textAlign: " + textAlign);
+    }
+  }
+
+  @ReactProp(name = ViewProps.LINE_BREAK_MODE)
+  public void setLineBreakMode(ReactTextView view, @Nullable String ellipsizeMode) {
+    if(ellipsizeMode == null) {
+      return;
+    }
+
+    if (ellipsizeMode.equals("head")) {
+      view.setEllipsize(TextUtils.TruncateAt.START);
+    } else if (ellipsizeMode.equals("middle")) {
+      view.setEllipsize(TextUtils.TruncateAt.MIDDLE);
+    } else if (ellipsizeMode.equals("tail")) {
+      view.setEllipsize(TextUtils.TruncateAt.END);
     }
   }
 
@@ -85,13 +103,9 @@ public class ReactTextViewManager extends BaseViewManager<ReactTextView, ReactTe
     }
   }
 
-  @ReactProp(name = ViewProps.LINE_HEIGHT, defaultFloat = Float.NaN)
-  public void setLineHeight(ReactTextView view, float lineHeight) {
-    if (Float.isNaN(lineHeight)) { // NaN will be used if property gets reset
-      view.setLineSpacing(0, 1);
-    } else {
-      view.setLineSpacing(PixelUtil.toPixelFromSP(lineHeight), 0);
-    }
+  @ReactProp(name = "selectable")
+  public void setSelectable(ReactTextView view, boolean isSelectable) {
+    view.setTextIsSelectable(isSelectable);
   }
 
   @Override

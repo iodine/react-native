@@ -9,7 +9,7 @@
 
 #import <UIKit/UIKit.h>
 
-#import "Layout.h"
+#import <CSSLayout/CSSLayout.h>
 #import "RCTComponent.h"
 #import "RCTRootView.h"
 
@@ -35,11 +35,16 @@ typedef void (^RCTApplierBlock)(NSDictionary<NSNumber *, UIView *> *viewRegistry
  */
 @interface RCTShadowView : NSObject <RCTComponent>
 
-- (NSArray<RCTShadowView *> *)reactSubviews;
-- (RCTShadowView *)reactSuperview;
+/**
+ * RCTComponent interface.
+ */
+- (NSArray<RCTShadowView *> *)reactSubviews NS_REQUIRES_SUPER;
+- (RCTShadowView *)reactSuperview NS_REQUIRES_SUPER;
+- (void)insertReactSubview:(RCTShadowView *)subview atIndex:(NSInteger)atIndex NS_REQUIRES_SUPER;
+- (void)removeReactSubview:(RCTShadowView *)subview NS_REQUIRES_SUPER;
 
 @property (nonatomic, weak, readonly) RCTShadowView *superview;
-@property (nonatomic, assign, readonly) css_node_t *cssNode;
+@property (nonatomic, assign, readonly) CSSNodeRef cssNode;
 @property (nonatomic, copy) NSString *viewName;
 @property (nonatomic, strong) UIColor *backgroundColor; // Used to propagate to children
 @property (nonatomic, assign) RCTUpdateLifecycle layoutLifecycle;
@@ -53,6 +58,12 @@ typedef void (^RCTApplierBlock)(NSDictionary<NSNumber *, UIView *> *viewRegistry
 @property (nonatomic, assign, getter=isNewView) BOOL newView;
 
 /**
+ * isHidden - RCTUIManager uses this to determine whether or not the UIView should be hidden. Useful if the
+ * ShadowView determines that its UIView will be clipped and wants to hide it.
+ */
+@property (nonatomic, assign, getter=isHidden) BOOL hidden;
+
+/**
  * Position and dimensions.
  * Defaults to { 0, 0, NAN, NAN }.
  */
@@ -63,6 +74,12 @@ typedef void (^RCTApplierBlock)(NSDictionary<NSNumber *, UIView *> *viewRegistry
 
 @property (nonatomic, assign) CGFloat width;
 @property (nonatomic, assign) CGFloat height;
+
+@property (nonatomic, assign) CGFloat minWidth;
+@property (nonatomic, assign) CGFloat maxWidth;
+@property (nonatomic, assign) CGFloat minHeight;
+@property (nonatomic, assign) CGFloat maxHeight;
+
 @property (nonatomic, assign) CGRect frame;
 
 - (void)setTopLeft:(CGPoint)topLeft;
@@ -110,13 +127,18 @@ typedef void (^RCTApplierBlock)(NSDictionary<NSNumber *, UIView *> *viewRegistry
 /**
  * Flexbox properties. All zero/disabled by default
  */
-@property (nonatomic, assign) css_flex_direction_t flexDirection;
-@property (nonatomic, assign) css_justify_t justifyContent;
-@property (nonatomic, assign) css_align_t alignSelf;
-@property (nonatomic, assign) css_align_t alignItems;
-@property (nonatomic, assign) css_position_type_t position;
-@property (nonatomic, assign) css_wrap_type_t flexWrap;
+@property (nonatomic, assign) CSSFlexDirection flexDirection;
+@property (nonatomic, assign) CSSJustify justifyContent;
+@property (nonatomic, assign) CSSAlign alignSelf;
+@property (nonatomic, assign) CSSAlign alignItems;
+@property (nonatomic, assign) CSSPositionType position;
+@property (nonatomic, assign) CSSWrapType flexWrap;
 @property (nonatomic, assign) CGFloat flex;
+
+/**
+ * z-index, used to override sibling order in the view
+ */
+@property (nonatomic, assign) NSInteger zIndex;
 
 /**
  * Calculate property changes that need to be propagated to the view.
@@ -134,18 +156,45 @@ typedef void (^RCTApplierBlock)(NSDictionary<NSNumber *, UIView *> *viewRegistry
                                           parentProperties:(NSDictionary<NSString *, id> *)parentProperties NS_REQUIRES_SUPER;
 
 /**
- * Recursively apply layout to children.
+ * Can be called by a parent on a child in order to calculate all views whose frame needs
+ * updating in that branch. Adds these frames to `viewsWithNewFrame`. Useful if layout
+ * enters a view where flex doesn't apply (e.g. Text) and then you want to resume flex
+ * layout on a subview.
  */
-- (void)applyLayoutNode:(css_node_t *)node
+- (void)collectUpdatedFrames:(NSMutableSet<RCTShadowView *> *)viewsWithNewFrame
+                   withFrame:(CGRect)frame
+                      hidden:(BOOL)hidden
+            absolutePosition:(CGPoint)absolutePosition;
+
+/**
+ * Apply the CSS layout.
+ * This method also calls `applyLayoutToChildren:` internally. The functionality
+ * is split into two methods so subclasses can override `applyLayoutToChildren:`
+ * while using default implementation of `applyLayoutNode:`.
+ */
+- (void)applyLayoutNode:(CSSNodeRef)node
       viewsWithNewFrame:(NSMutableSet<RCTShadowView *> *)viewsWithNewFrame
        absolutePosition:(CGPoint)absolutePosition NS_REQUIRES_SUPER;
 
 /**
+ * Enumerate the child nodes and tell them to apply layout.
+ */
+- (void)applyLayoutToChildren:(CSSNodeRef)node
+            viewsWithNewFrame:(NSMutableSet<RCTShadowView *> *)viewsWithNewFrame
+             absolutePosition:(CGPoint)absolutePosition;
+
+/**
  * The following are implementation details exposed to subclasses. Do not call them directly
  */
-- (void)fillCSSNode:(css_node_t *)node NS_REQUIRES_SUPER;
 - (void)dirtyLayout NS_REQUIRES_SUPER;
 - (BOOL)isLayoutDirty;
+
+/**
+ * Return whether or not this node acts as a leaf node in the eyes of CSSLayout. For example
+ * RCTShadowText has children which it does not want CSSLayout to lay out so in the eyes of
+ * CSSLayout it is a leaf node.
+ */
+- (BOOL)isCSSLeafNode;
 
 - (void)dirtyPropagation NS_REQUIRES_SUPER;
 - (BOOL)isPropagationDirty;
@@ -154,6 +203,10 @@ typedef void (^RCTApplierBlock)(NSDictionary<NSNumber *, UIView *> *viewRegistry
 - (void)setTextComputed NS_REQUIRES_SUPER;
 - (BOOL)isTextDirty;
 
+/**
+ * As described in RCTComponent protocol.
+ */
+- (void)didUpdateReactSubviews NS_REQUIRES_SUPER;
 - (void)didSetProps:(NSArray<NSString *> *)changedProps NS_REQUIRES_SUPER;
 
 /**

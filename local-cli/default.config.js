@@ -2,6 +2,7 @@
 
 var blacklist = require('../packager/blacklist');
 var path = require('path');
+var rnpmConfig = require('./rnpm/core/src/config');
 
 /**
  * Default configuration for the CLI.
@@ -14,6 +15,9 @@ var config = {
   getProjectRoots() {
     return getRoots();
   },
+
+  getProjectConfig: rnpmConfig.getProjectConfig,
+  getDependencyConfig: rnpmConfig.getDependencyConfig,
 
   /**
    * Specify where to look for assets that are referenced using
@@ -30,7 +34,15 @@ var config = {
    */
   getBlacklistRE(platform) {
     return blacklist(platform);
-  }
+  },
+
+  /**
+   * Returns the path to a custom transformer. This can also be overridden
+   * with the --transformer commandline argument.
+   */
+  getTransformModulePath() {
+    return require.resolve('../packager/transformer');
+  },
 };
 
 function getRoots() {

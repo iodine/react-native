@@ -17,13 +17,13 @@ var Transform = require('art/core/transform');
 var React = require('React');
 var ReactNativeViewAttributes = require('ReactNativeViewAttributes');
 
-var createReactNativeComponentClass = require('createReactNativeComponentClass');
+var createReactNativeComponentClass = require('react/lib/createReactNativeComponentClass');
 var merge = require('merge');
 
 // Diff Helpers
 
 function arrayDiffer(a, b) {
-  if (a == null) {
+  if (a == null || b == null) {
     return true;
   }
   if (a.length !== b.length) {

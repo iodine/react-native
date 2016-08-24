@@ -66,10 +66,9 @@ public:
    */
   void callFunction(
     ExecutorToken executorToken,
-    const std::string& moduleId,
-    const std::string& methodId,
-    const folly::dynamic& args,
-    const std::string& tracingName);
+    const std::string& module,
+    const std::string& method,
+    const folly::dynamic& args);
 
   /**
    * Invokes a callback with the cbID, and optional additional arguments in JS.
@@ -96,6 +95,7 @@ public:
   bool supportsProfiling();
   void startProfiler(const std::string& title);
   void stopProfiler(const std::string& title, const std::string& filename);
+  void handleMemoryPressureUiHidden();
   void handleMemoryPressureModerate();
   void handleMemoryPressureCritical();
 

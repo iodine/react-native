@@ -33,7 +33,7 @@ import com.facebook.react.uimanager.events.NativeGestureUtil;
 
   private class Adapter extends PagerAdapter {
 
-    private List<View> mViews = new ArrayList<>();
+    private final List<View> mViews = new ArrayList<>();
 
     void addView(View child, int index) {
       mViews.add(index, child);
@@ -68,6 +68,11 @@ import com.facebook.react.uimanager.events.NativeGestureUtil;
     }
 
     @Override
+    public int getItemPosition(Object object) {
+      return mViews.contains(object) ? mViews.indexOf(object) : POSITION_NONE;
+    }
+
+    @Override
     public Object instantiateItem(ViewGroup container, int position) {
       View view = mViews.get(position);
       container.addView(view, 0, generateDefaultLayoutParams());
@@ -76,8 +81,7 @@ import com.facebook.react.uimanager.events.NativeGestureUtil;
 
     @Override
     public void destroyItem(ViewGroup container, int position, Object object) {
-      View view = mViews.get(position);
-      container.removeView(view);
+      container.removeView((View) object);
     }
 
     @Override
@@ -125,6 +129,7 @@ import com.facebook.react.uimanager.events.NativeGestureUtil;
 
   private final EventDispatcher mEventDispatcher;
   private boolean mIsCurrentItemFromJs;
+  private boolean mScrollEnabled = true;
 
   public ReactViewPager(ReactContext reactContext) {
     super(reactContext);
@@ -141,6 +146,10 @@ import com.facebook.react.uimanager.events.NativeGestureUtil;
 
   @Override
   public boolean onInterceptTouchEvent(MotionEvent ev) {
+    if (!mScrollEnabled) {
+      return false;
+    }
+
     if (super.onInterceptTouchEvent(ev)) {
       NativeGestureUtil.notifyNativeGestureStarted(this, ev);
       return true;
@@ -148,10 +157,23 @@ import com.facebook.react.uimanager.events.NativeGestureUtil;
     return false;
   }
 
+  @Override
+  public boolean onTouchEvent(MotionEvent ev) {
+    if (!mScrollEnabled) {
+      return false;
+    }
+
+    return super.onTouchEvent(ev);
+  }
+
   public void setCurrentItemFromJs(int item, boolean animated) {
     mIsCurrentItemFromJs = true;
     setCurrentItem(item, animated);
     mIsCurrentItemFromJs = false;
+  }
+
+  public void setScrollEnabled(boolean scrollEnabled) {
+    mScrollEnabled = scrollEnabled;
   }
 
   /*package*/ void addViewToAdapter(View child, int index) {

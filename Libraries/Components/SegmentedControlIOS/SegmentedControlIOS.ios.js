@@ -11,9 +11,8 @@
  */
 'use strict';
 
-var NativeMethodsMixin = require('NativeMethodsMixin');
-var NativeModules = require('NativeModules');
-var PropTypes = require('ReactPropTypes');
+var NativeMethodsMixin = require('react/lib/NativeMethodsMixin');
+var PropTypes = require('react/lib/ReactPropTypes');
 var React = require('React');
 var StyleSheet = require('StyleSheet');
 var View = require('View');
@@ -120,7 +119,7 @@ var SegmentedControlIOS = React.createClass({
 
 var styles = StyleSheet.create({
   segmentedControl: {
-    height: NativeModules.SegmentedControlManager.ComponentHeight
+    height: 28,
   },
 });
 

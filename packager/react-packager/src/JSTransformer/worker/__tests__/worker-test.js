@@ -8,21 +8,23 @@
  */
 'use strict';
 
-jest.autoMockOff();
+jest.disableAutomock();
 jest.mock('../constant-folding');
 jest.mock('../extract-dependencies');
 jest.mock('../inline');
 jest.mock('../minify');
 
-const {transformCode} = require('..');
 const {any, objectContaining} = jasmine;
 
 describe('code transformation worker:', () => {
+  let transformCode;
+
   let extractDependencies, transform;
   beforeEach(() => {
+    ({transformCode} = require('..'));
     extractDependencies =
       require('../extract-dependencies').mockReturnValue({});
-    transform = jest.genMockFunction();
+    transform = jest.fn();
   });
 
   it('calls the transform with file name, source code, and transform options', function() {
@@ -65,6 +67,19 @@ describe('code transformation worker:', () => {
 
     transformCode(transform, 'aribtrary/file.json', 'b', {}, (_, data) => {
       expect(data.code).toBe('{a:1,b:2}');
+      done();
+    });
+  });
+
+  it('removes shebang when present', done => {
+    const shebang = '#!/usr/bin/env node';
+    const result = {
+      code: `${shebang} \n arbitrary(code)`,
+    };
+    transform.mockImplementation((_, callback) => callback(null, result));
+    transformCode(transform, 'arbitrary/file.js', 'b', {}, (_, data) => {
+      expect(data.code).not.toContain(shebang);
+      expect(data.code.split('\n').length).toEqual(result.code.split('\n').length);
       done();
     });
   });

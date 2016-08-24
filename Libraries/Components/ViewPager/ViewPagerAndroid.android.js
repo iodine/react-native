@@ -12,9 +12,9 @@
 'use strict';
 
 var React = require('React');
-var ReactNative = require('ReactNative');
-var ReactElement = require('ReactElement');
-var ReactPropTypes = require('ReactPropTypes');
+var ReactNative = require('react/lib/ReactNative');
+var ReactElement = require('react/lib/ReactElement');
+var ReactPropTypes = require('react/lib/ReactPropTypes');
 var UIManager = require('UIManager');
 var View = require('View');
 
@@ -123,6 +123,12 @@ var ViewPagerAndroid = React.createClass({
       'none', // default
       'on-drag',
     ]),
+
+    /**
+    * When false, the content does not scroll.
+    * The default value is true.
+    */
+    scrollEnabled: ReactPropTypes.bool,
   },
 
   componentDidMount: function() {
@@ -201,7 +207,7 @@ var ViewPagerAndroid = React.createClass({
 
   /**
    * A helper function to scroll to a specific page in the ViewPager.
-   * The transition between pages will be *not* be animated.
+   * The transition between pages will *not* be animated.
    */
   setPageWithoutAnimation: function(selectedPage: number) {
     UIManager.dispatchViewManagerCommand(
