@@ -22,14 +22,12 @@
  */
 'use strict';
 
-const React = require('React');
-
 export type UIExplorerExample = {
-  key: string;
-  module: React.Component;
+  key: string,
+  module: Object,
 };
 
-var ComponentExamples: Array<UIExplorerExample> = [
+const ComponentExamples: Array<UIExplorerExample> = [
   {
     key: 'ActivityIndicatorExample',
     module: require('./ActivityIndicatorExample'),
@@ -49,10 +47,6 @@ var ComponentExamples: Array<UIExplorerExample> = [
   {
     key: 'ModalExample',
     module: require('./ModalExample'),
-  },
-  {
-    key: 'NativeAnimationsExample',
-    module: require('./NativeAnimationsExample'),
   },
   {
     key: 'PickerExample',
@@ -112,7 +106,7 @@ var ComponentExamples: Array<UIExplorerExample> = [
   },
 ];
 
-const APIExamples = [
+const APIExamples: Array<UIExplorerExample> = [
   {
     key: 'AccessibilityAndroidExample',
     module: require('./AccessibilityAndroidExample'),
@@ -120,6 +114,10 @@ const APIExamples = [
   {
     key: 'AlertExample',
     module: require('./AlertExample').AlertExample,
+  },
+  {
+    key: 'AnimatedExample',
+    module: require('./AnimatedExample'),
   },
   {
     key: 'AppStateExample',
@@ -166,12 +164,20 @@ const APIExamples = [
     module: require('./LayoutExample'),
   },
   {
+    key: 'NativeAnimationsExample',
+    module: require('./NativeAnimationsExample'),
+  },
+  {
     key: 'NavigationExperimentalExample',
     module: require('./NavigationExperimental/NavigationExperimentalExample'),
   },
   {
     key: 'NetInfoExample',
     module: require('./NetInfoExample'),
+  },
+  {
+    key: 'OrientationChangeExample',
+    module: require('./OrientationChangeExample'),
   },
   {
     key: 'PanResponderExample',
@@ -184,6 +190,10 @@ const APIExamples = [
   {
     key: 'PointerEventsExample',
     module: require('./PointerEventsExample'),
+  },
+  {
+    key: 'RTLExample',
+    module: require('./RTLExample'),
   },
   {
     key: 'ShareExample',

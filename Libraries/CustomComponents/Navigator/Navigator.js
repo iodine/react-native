@@ -495,7 +495,10 @@ var Navigator = React.createClass({
       transitionQueue: [],
     }, () => {
       this._handleSpringUpdate();
-      this._navBar && this._navBar.immediatelyRefresh();
+      var navBar = this._navBar;
+      if (navBar && navBar.immediatelyRefresh) {
+        navBar.immediatelyRefresh();
+      }
       this._emitDidFocus(this.state.routeStack[this.state.presentedIndex]);
     });
   },
@@ -1258,7 +1261,7 @@ var Navigator = React.createClass({
   },
 
   _renderNavigationBar: function() {
-    let { navigationBar } = this.props;
+    const { navigationBar } = this.props;
     if (!navigationBar) {
       return null;
     }

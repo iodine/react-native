@@ -15,7 +15,6 @@ import android.text.TextUtils;
 
 import com.facebook.common.logging.FLog;
 import com.facebook.infer.annotation.Assertions;
-import com.facebook.react.bridge.JSPackagerWebSocketClient;
 import com.facebook.react.bridge.UiThreadUtil;
 import com.facebook.react.common.ReactConstants;
 import com.facebook.react.common.network.OkHttpCallUtil;
@@ -80,7 +79,7 @@ public class DevServerHelper {
   }
 
   public interface PackagerCommandListener {
-    void onReload();
+    void onPackagerReloadCommand();
   }
 
   public interface PackagerStatusCallback {
@@ -89,15 +88,15 @@ public class DevServerHelper {
 
   private final DevInternalSettings mSettings;
   private final OkHttpClient mClient;
-  private final JSPackagerWebSocketClient mPackagerConnection;
   private final Handler mRestartOnChangePollingHandler;
 
   private boolean mOnChangePollingEnabled;
+  private @Nullable JSPackagerWebSocketClient mPackagerConnection;
   private @Nullable OkHttpClient mOnChangePollingClient;
   private @Nullable OnServerContentChangeListener mOnServerContentChangeListener;
   private @Nullable Call mDownloadBundleFromURLCall;
 
-  public DevServerHelper(DevInternalSettings settings, final PackagerCommandListener commandListener) {
+  public DevServerHelper(DevInternalSettings settings) {
     mSettings = settings;
     mClient = new OkHttpClient.Builder()
       .connectTimeout(HTTP_CONNECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
@@ -106,16 +105,30 @@ public class DevServerHelper {
       .build();
 
     mRestartOnChangePollingHandler = new Handler();
+  }
+
+  public void openPackagerConnection(final PackagerCommandListener commandListener) {
+    if (mPackagerConnection != null) {
+      FLog.w(ReactConstants.TAG, "Packager connection already open, nooping.");
+      return;
+    }
     mPackagerConnection = new JSPackagerWebSocketClient(getPackagerConnectionURL(),
         new JSPackagerWebSocketClient.JSPackagerCallback() {
           @Override
           public void onMessage(String target, String action) {
             if (commandListener != null && "bridge".equals(target) && "reload".equals(action)) {
-              commandListener.onReload();
+              commandListener.onPackagerReloadCommand();
             }
           }
         });
     mPackagerConnection.connect();
+  }
+
+  public void closePackagerConnection() {
+    if (mPackagerConnection != null) {
+      mPackagerConnection.closeQuietly();
+      mPackagerConnection = null;
+    }
   }
 
   /** Intent action for reloading the JS */

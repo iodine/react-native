@@ -97,8 +97,22 @@ public abstract class ReactInstanceManager {
   /**
    * Call this from {@link Activity#onPause()}. This notifies any listening modules so they can do
    * any necessary cleanup.
+   *
+   * @deprecated Use {@link #onHostPause(Activity)} instead.
    */
+  @Deprecated
   public abstract void onHostPause();
+
+  /**
+   * Call this from {@link Activity#onPause()}. This notifies any listening modules so they can do
+   * any necessary cleanup. The passed Activity is the current Activity being paused. This will
+   * always be the foreground activity that would be returned by
+   * {@link ReactContext#getCurrentActivity()}.
+   *
+   * @param activity the activity being paused
+   */
+  public abstract void onHostPause(Activity activity);
+
   /**
    * Use this method when the activity resumes to enable invoking the back button directly from JS.
    *
@@ -117,9 +131,26 @@ public abstract class ReactInstanceManager {
   /**
    * Call this from {@link Activity#onDestroy()}. This notifies any listening modules so they can do
    * any necessary cleanup.
+   *
+   * @deprecated use {@link #onHostDestroy(Activity)} instead
    */
+  @Deprecated
   public abstract void onHostDestroy();
-  public abstract void onActivityResult(int requestCode, int resultCode, Intent data);
+
+  /**
+   * Call this from {@link Activity#onDestroy()}. This notifies any listening modules so they can do
+   * any necessary cleanup. If the activity being destroyed is not the current activity, no modules
+   * are notified.
+   *
+   * @param activity the activity being destroyed
+   */
+  public abstract void onHostDestroy(Activity activity);
+
+  public abstract void onActivityResult(
+    Activity activity,
+    int requestCode,
+    int resultCode,
+    Intent data);
   public abstract void showDevOptionsDialog();
 
   /**
@@ -189,7 +220,7 @@ public abstract class ReactInstanceManager {
 
     protected final List<ReactPackage> mPackages = new ArrayList<>();
 
-    protected @Nullable String mJSBundleFile;
+    protected @Nullable String mJSBundleAssetUrl;
     protected @Nullable JSBundleLoader mJSBundleLoader;
     protected @Nullable String mJSMainModuleName;
     protected @Nullable NotThreadSafeBridgeIdleDebugListener mBridgeIdleDebugListener;
@@ -221,7 +252,9 @@ public abstract class ReactInstanceManager {
      * Example: {@code "index.android.js"}
      */
     public Builder setBundleAssetName(String bundleAssetName) {
-      return this.setJSBundleFile(bundleAssetName == null ? null : "assets://" + bundleAssetName);
+      mJSBundleAssetUrl = (bundleAssetName == null ? null : "assets://" + bundleAssetName);
+      mJSBundleLoader = null;
+      return this;
     }
 
     /**
@@ -230,9 +263,12 @@ public abstract class ReactInstanceManager {
      * Example: {@code "assets://index.android.js" or "/sdcard/main.jsbundle"}
      */
     public Builder setJSBundleFile(String jsBundleFile) {
-      mJSBundleFile = jsBundleFile;
-      mJSBundleLoader = null;
-      return this;
+      if (jsBundleFile.startsWith("assets://")) {
+        mJSBundleAssetUrl = jsBundleFile;
+        mJSBundleLoader = null;
+        return this;
+      }
+      return setJSBundleLoader(JSBundleLoader.createFileLoader(jsBundleFile));
     }
 
     /**
@@ -243,7 +279,7 @@ public abstract class ReactInstanceManager {
      */
     public Builder setJSBundleLoader(JSBundleLoader jsBundleLoader) {
       mJSBundleLoader = jsBundleLoader;
-      mJSBundleFile = null;
+      mJSBundleAssetUrl = null;
       return this;
     }
 
@@ -345,11 +381,11 @@ public abstract class ReactInstanceManager {
           "Application property has not been set with this builder");
 
       Assertions.assertCondition(
-          mUseDeveloperSupport || mJSBundleFile != null || mJSBundleLoader != null,
-          "JS Bundle File has to be provided when dev support is disabled");
+          mUseDeveloperSupport || mJSBundleAssetUrl != null || mJSBundleLoader != null,
+          "JS Bundle File or Asset URL has to be provided when dev support is disabled");
 
       Assertions.assertCondition(
-          mJSMainModuleName != null || mJSBundleFile != null || mJSBundleLoader != null,
+          mJSMainModuleName != null || mJSBundleAssetUrl != null || mJSBundleLoader != null,
           "Either MainModuleName or JS Bundle File needs to be provided");
 
       if (mUIImplementationProvider == null) {
@@ -361,8 +397,8 @@ public abstract class ReactInstanceManager {
           mApplication,
           mCurrentActivity,
           mDefaultHardwareBackBtnHandler,
-          (mJSBundleLoader == null && mJSBundleFile != null) ?
-            JSBundleLoader.createFileLoader(mApplication, mJSBundleFile) : mJSBundleLoader,
+          (mJSBundleLoader == null && mJSBundleAssetUrl != null) ?
+            JSBundleLoader.createAssetLoader(mApplication, mJSBundleAssetUrl) : mJSBundleLoader,
           mJSMainModuleName,
           mPackages,
           mUseDeveloperSupport,
